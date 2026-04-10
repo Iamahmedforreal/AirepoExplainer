@@ -1,16 +1,19 @@
+
+import enum
 import uuid
-from sqlalchemy import ARRAY, Boolean, Column, DateTime, Enum, Enum, Index, Integer, String , Text , ForeignKey, UniqueConstraint, engine, func
-from sqlalchemy.orm import relationship
-from sqlalchemy.orm import DeclarativeBase , relationship
+from enum import Enum as PyEnum
+from sqlalchemy import ARRAY, Boolean, Column, DateTime, Enum, Index, Integer, String, Text, ForeignKey, UniqueConstraint, func
+from sqlalchemy.orm import DeclarativeBase, relationship
+from app.models.db import engine
 
 class Base(DeclarativeBase):
     pass
 
-class RepoStatus(str, Enum):
+class RepoStatus(enum.Enum):
     PENDING = "PENDING"
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
-class User(DeclarativeBase):
+class User(Base):
     __tablename__ = "users"
 
     id = Column(String, primary_key=True, default=uuid.uuid4)
@@ -26,7 +29,7 @@ class User(DeclarativeBase):
         Index("ix_users_email", "email"),
     )
 
-class Repository(DeclarativeBase):
+class Repository(Base):
     __tablename__ = "repositories"
 
     id = Column(String, primary_key=True, default=uuid.uuid4)
@@ -54,7 +57,7 @@ class Repository(DeclarativeBase):
     repoCreatedAt = Column(DateTime(timezone=True), nullable=True)
     repoUpdatedAt = Column(DateTime(timezone=True), nullable=True)
 
-    status = Column(Enum(RepoStatus), default=RepoStatus.PENDING, nullable=False)
+    status = Column(Enum(RepoStatus , name="repo_status_enum"), default=RepoStatus.PENDING, nullable=False)
 
     createdAt = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updatedAt = Column( DateTime(timezone=True),server_default=func.now(), onupdate=func.now(), nullable=False)
@@ -75,5 +78,5 @@ class Repository(DeclarativeBase):
 
 async def create_db_and_tables():
     async with engine.begin() as conn:
-        await conn.run_sync(DeclarativeBase.metadata.create_all)
+        await conn.run_sync(Base.metadata.create_all)
 
