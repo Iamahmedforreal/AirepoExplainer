@@ -4,9 +4,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import os
 
-# Load environment variables from .env file
-root = Path(__file__).resolve().parents[2]
-load_dotenv(root / ".env")
+load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
