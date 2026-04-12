@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from app.models.users import create_db_and_tables
-from app.router.authRouter import router as auth_router
 from contextlib import asynccontextmanager
+from app.router.webhook_router import router as webhook_router
 
 
 @asynccontextmanager
@@ -13,6 +13,6 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 # Include routers
-app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+app.include_router(webhook_router, prefix="/api/webhook", tags=["webhook"])
 
 

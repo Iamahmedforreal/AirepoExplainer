@@ -1,8 +1,10 @@
 from datetime import datetime
 
 from celery import Celery
-from sqlalchemy import select  , SyncSession
-from models import WebhookEvent, User
+from sqlalchemy import select 
+from app.database import SyncSession
+from app.models.webhook import webhook as WebhookEvent
+from app.models.users import User
 
 celery = Celery("celery_tasks" , broker="redis://localhost:6379/0")
 
@@ -45,6 +47,7 @@ def _handle_user_created(db, data: dict):
     )
     db.add(user)
     db.commit()
+
 
 def _handle_user_updated(event:list , db):
     exisiting_user = db.execute(

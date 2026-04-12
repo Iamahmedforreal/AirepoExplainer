@@ -20,7 +20,6 @@ class User(Base):
     username = Column(String(50), unique=True, nullable=False)
     first_name = Column(String(50), nullable=False)
     last_name = Column(String(50), nullable=False)
-    hashed_password = Column(String(255), nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     deletedAt = Column(DateTime(timezone=True), nullable=True)
     createdAt = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

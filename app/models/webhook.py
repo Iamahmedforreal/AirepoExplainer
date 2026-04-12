@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import uuid
-from sqlalchemy import ARRAY, JSON, Boolean, Column, DateTime, Enum, Index, Integer, String, Text, ForeignKey, UniqueConstraint, func
+from sqlalchemy import ARRAY, JSON, Boolean, Column, DateTime, String
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from app.models.db import engine
 
@@ -13,7 +13,6 @@ class webhook(Base):
     clerkId = Column(String , unique=True)
     type: Mapped[dict] = Column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-
-
+    
 
     
