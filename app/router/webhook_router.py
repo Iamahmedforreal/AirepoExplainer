@@ -6,7 +6,7 @@ from svix.webhooks import Webhook , WebhookVerificationError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.db import get_db
 from app.models.webhook import webhook as WebhookEvent
-from app.services.clerk_webhook import savedb
+from app.services.clerk_webhook import save_webhook_event 
 from app.services.task import process_webhook_event
 from app.services.clerk_webhook import check_event_exists
 
@@ -42,14 +42,13 @@ async def handle_clerk_webhook(request: Request , db: AsyncSession = Depends(get
     
     
     Clerk_event_id = data.get("id") or header["svix-id"]
+    event_type = data.get("type")
    
     if await check_event_exists(db , Clerk_event_id):
         raise HTTPException(status_code=400, detail="Event already processed")
     
     #save the event to the database
-    saved_db = await savedb(db , event)
-    if not saved_db:
-        raise HTTPException(status_code=500, detail="Failed to save event to database")
+    await save_webhook_event(db , Clerk_event_id ,event_type ,  data)
     
     #process the event asynchronously  using celery
     process_webhook_event.delay(Clerk_event_id)

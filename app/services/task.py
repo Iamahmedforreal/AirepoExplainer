@@ -8,7 +8,7 @@ from app.models.users import User
 
 celery = Celery("celery_tasks" , broker="redis://localhost:6379/0")
 
-@celery.task(blind=True , retries=3)
+@celery.task(bind=True, max_retries=3)
 def process_webhook_event(self , event_id):
     with SyncSession() as db:
         event = db.get(WebhookEvent , event_id)

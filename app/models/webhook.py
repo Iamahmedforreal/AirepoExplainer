@@ -1,11 +1,9 @@
 from datetime import datetime, timezone
 import uuid
 from sqlalchemy import ARRAY, JSON, Boolean, Column, DateTime, String
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
+from app.models.users import Base
 from app.models.db import engine
-
-class Base(DeclarativeBase):
-    pass
 
 class webhook(Base):
     __tablename__ = "webhookevents"
