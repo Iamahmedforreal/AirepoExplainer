@@ -18,11 +18,12 @@ def process_webhook_event(self , event_id):
 
         try:
             if event.type == "user.created":
-                _handle_user_created(event , db)
-            if event.type == "user.updated":
-                _handle_user_updated(event , db)
-            if event.type == "user.deleted":
-                _handle_user_deleted(event , db)
+                _handle_user_created(db , event.payload["data"])
+            elif event.type == "user.updated":
+                _handle_user_updated(db , event.payload["data"])
+            elif event.type == "user.deleted":
+                _handle_user_deleted(db , event.payload["data"])
+            db.commit()
         except Exception as error:
             db.rollback()
             raise self.retry(exc=error , countdown=60)
@@ -46,7 +47,7 @@ def _handle_user_created(db, data: dict):
         username=data.get("username"),
     )
     db.add(user)
-    db.commit()
+    
 
 
 def _handle_user_updated(event:list , db):
@@ -59,14 +60,15 @@ def _handle_user_updated(event:list , db):
         exisiting_user.first_name = event.get("first_name")
         exisiting_user.last_name = event.get("last_name")
         exisiting_user.username = event.get("username")
-        db.commit()
+        
 
 
 def _handle_user_deleted(event , db):
     user = db.execute(
-        select(User).where(User.clerk_id == event["id"]).scalar_one_or_none()
-    )
+        select(User).where(User.clerk_id == event["id"])
+    ).scalar_one_or_none()
+
     if user:
         user.deletedAt = datetime.utcnow()
         db.delete(user)
-        db.commit()
+        
