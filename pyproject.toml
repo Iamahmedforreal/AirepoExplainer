@@ -12,6 +12,7 @@ dependencies = [
     "email-validator>=2.3.0",
     "fastapi>=0.135.3",
     "passlib[bcrypt]>=1.7.4",
+    "psycopg2-binary>=2.9.11",
     "pygithub>=2.9.0",
     "python-dotenv>=1.2.2",
     "redis>=7.4.0",

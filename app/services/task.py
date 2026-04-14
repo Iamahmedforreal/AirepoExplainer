@@ -1,16 +1,16 @@
 from datetime import datetime
-
 from celery import Celery
 from sqlalchemy import select 
-from app.database import SyncSession
-from app.models.webhook import webhook as WebhookEvent
+from app.database import SyncSessionLocal
+from app.models.webhook import  WebhookEvent
 from app.models.users import User
+
 
 celery = Celery("celery_tasks" , broker="redis://localhost:6379/0")
 
 @celery.task(bind=True, max_retries=3)
 def process_webhook_event(self , event_id):
-    with SyncSession() as db:
+    with SyncSessionLocal() as db:
         event = db.get(WebhookEvent , event_id)
         if not event:
             return 
@@ -18,7 +18,7 @@ def process_webhook_event(self , event_id):
 
         try:
             if event.type == "user.created":
-                _handle_user_created(db , event.payload["data"])
+                 _handle_user_created(db , event.payload["data"])
             elif event.type == "user.updated":
                 _handle_user_updated(db , event.payload["data"])
             elif event.type == "user.deleted":
@@ -31,11 +31,12 @@ def process_webhook_event(self , event_id):
 
 
 def _handle_user_created(db, data: dict):
+    
     # check if user already exists
-    existing = db.execute(
+    existing =  db.execute(
         select(User).where(User.clerk_id == data["id"])
     ).scalar_one_or_none()
-    
+
     if existing:
         return
 
@@ -50,7 +51,7 @@ def _handle_user_created(db, data: dict):
     
 
 
-def _handle_user_updated(event:list , db):
+def _handle_user_updated(db , event: dict):
     exisiting_user = db.execute(
         select(User).where(User.clerk_id == event["id"])
     ).scalar_one_or_none()
@@ -63,7 +64,7 @@ def _handle_user_updated(event:list , db):
         
 
 
-def _handle_user_deleted(event , db):
+def _handle_user_deleted(db , event: dict):
     user = db.execute(
         select(User).where(User.clerk_id == event["id"])
     ).scalar_one_or_none()
