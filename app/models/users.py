@@ -13,6 +13,15 @@ class RepoStatus(enum.Enum):
     PENDING = "PENDING"
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    clerk_id = Column(String, unique=True, nullable=False)
+    createdAt = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updatedAt = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    repositories = relationship("Repository", back_populates="user")
+
 
 class Repository(Base):
     __tablename__ = "repositories"
@@ -47,9 +56,6 @@ class Repository(Base):
     # Relationship
     user = relationship("User", back_populates="repositories")
 
-  
-   #ingestionJobs = relationship("IngestionJob", back_populates="repository")
-
     
     __table_args__ = (
         UniqueConstraint("userId", "githubUrl", name="uq_user_repo_url"),
@@ -61,5 +67,4 @@ class Repository(Base):
 async def create_db_and_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-
 
