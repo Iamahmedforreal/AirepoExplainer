@@ -13,23 +13,6 @@ class RepoStatus(enum.Enum):
     PENDING = "PENDING"
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
-class User(Base):
-    __tablename__ = "users"
-
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    clerk_id = Column(String, unique=True, nullable=False)
-    username = Column(String(50), unique=True, nullable=False)
-    first_name = Column(String(50), nullable=False)
-    last_name = Column(String(50), nullable=False)
-    email = Column(String(100), unique=True, nullable=False)
-    deletedAt = Column(DateTime(timezone=True), nullable=True)
-    createdAt = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updatedAt = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-    repositories = relationship("Repository", back_populates="user")
-    __table_args__ = (
-        Index("ix_users_email", "email"),
-        Index("ix_users_username", "username"),
-    )
 
 class Repository(Base):
     __tablename__ = "repositories"
@@ -79,5 +62,4 @@ async def create_db_and_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-# Import app.models.webhook so webhook events are registered with Base.metadata
-from app.models import webhook
+
