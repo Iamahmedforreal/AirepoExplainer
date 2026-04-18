@@ -3,8 +3,8 @@ import os
 import asyncio
 from dotenv import load_dotenv
 from github import Github
-from services.validation import validate_github_repo_url   # fixed name
-from models.users import RepoStatus, Repository
+from app.services.validation import validate_github_repo_url
+from app.models.users import RepoStatus, Repository
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
@@ -12,7 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 load_dotenv()
 
-# fix — wrap token in Github client, not raw string
+# Wrap token in Github client, not raw string
 github_client = Github(os.getenv("GITHUB_API_KEY"))
 
 
