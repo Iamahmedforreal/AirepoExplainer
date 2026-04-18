@@ -26,7 +26,7 @@ if os.getenv("DATABASE_URL"):
 
 # Import your models so metadata is available for autogenerate.
 from app.models.users import Base
-import app.models.webhook  # noqa: F401
+  # noqa: F401
 
 target_metadata = Base.metadata
 

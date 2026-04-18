@@ -5,7 +5,7 @@ from app.models.db import get_db
 from app.services.urlService import extract_repo_info, save_repo
 from app.utils.utils import get_clerk_user_id
 
-router = APIRouter(prefix="/api", tags=["repositories"])
+router= APIRouter(prefix="/api", tags=["repositories"])
 
 @router.post("/repos")
 async def submitting_url(

@@ -1,9 +1,8 @@
 from requests import session
 import uuid
-
 from sqlalchemy.exc import SQLAlchemyError 
-from models.users import User
-from sqlalchemy import Select, exists, select  , AsyncSession 
+from app.models.users import User
+from sqlalchemy import Select, exists, select   
 from fastapi import HTTPException 
 
 async def create_new_user(user_id: str, db) -> User:
@@ -30,7 +29,7 @@ async def create_new_user(user_id: str, db) -> User:
         await db.rollback()
         raise Exception(f"Database error while creating user: {str(e)}")
     
-async def does_user_exist(user_id: str, db: AsyncSession) -> bool:
+async def does_user_exist(user_id: str, db) -> bool:
     result = await db.execute(
         select(exists().where(User.clerk_id == user_id))
     )
