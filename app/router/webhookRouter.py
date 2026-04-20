@@ -35,7 +35,7 @@ async def webhook_function(request: Request, db: AsyncSession = Depends(get_db))
         # ignore events that are not user.created
         if event.get("type") != "user.created":
             return {"status": "ignored"}
-
+       # get clerk user id
         user_id = event.get("data", {}).get("id")
 
         if not user_id:
