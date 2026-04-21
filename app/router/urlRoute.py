@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.db import get_db
 from app.services.urlService import extract_repo_info, save_repo
 from app.utils.utils import get_clerk_user_id
+from app.utils.utils import verify_token
 
 router= APIRouter(prefix="/api", tags=["repositories"])
 
@@ -11,7 +12,8 @@ router= APIRouter(prefix="/api", tags=["repositories"])
 async def submitting_url(
     request: Request,
     payload: TrustedGitHubRepoLink,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    token:str = Depends(verify_token)
 ):
     try:
         user_id = await get_clerk_user_id(request)
