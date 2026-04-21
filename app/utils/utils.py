@@ -7,7 +7,7 @@ import os
 # initialize Clerk once with your secret key
 clerk = Clerk(bearer_auth=os.getenv("CLEERK_SCERET_KEY"))
 
-async def verify_token(authorization: str = Header(...)) -> dict:
+async def verify_token(authorization: str = Header(None)) -> dict:
     # Step 1: check header exists and has correct format
     if not authorization.startswith("Bearer "):
         raise HTTPException(
