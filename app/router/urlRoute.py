@@ -15,7 +15,8 @@ async def submitting_url(
     token_payload = Depends(verify_token)
 ):
     try:
-        user_id = token_payload.user_id
+
+        user_id = token_payload.get("user_id")
         metadata = await extract_repo_info(payload.url)
         result = await save_repo(user_id, metadata, db)
         return {"message": "Repository indexed successfully", "data": result}
