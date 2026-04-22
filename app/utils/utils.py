@@ -1,32 +1,24 @@
 # app/utils/utils.py
-from clerk_backend_api import Clerk
-from clerk_backend_api.models import ClerkErrors
-from fastapi import HTTPException, Header
+from clerk_backend_api import Clerk , AuthenticateRequestOptions
+from fastapi import HTTPException, Header , Request
 import os
 
-# initialize Clerk once with your secret key
-clerk = Clerk(bearer_auth=os.getenv("CLEERK_SCERET_KEY"))
+clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
 
-async def verify_token(authorization: str = Header(None)) -> dict:
-    # Step 1: check header exists and has correct format
-    if not authorization.startswith("Bearer "):
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid authorization scheme. Use 'Bearer <token>'"
+async def verify_token(request: Request):
+    try:
+        auth = clerk.authenticate_request(
+            request,
+            AuthenticateRequestOptions(
+                authorized_parties=["http://localhost:5173"],
+                jwt_key=os.getenv("JWT_PUBLIK_KEY")
+            )
         )
 
-    # Step 2: extract raw token
-    token = authorization.removeprefix("Bearer ").strip()
-    if not token:
-        raise HTTPException(status_code=401, detail="Token is missing")
+        if not auth.is_signed_in:
+            raise HTTPException(status_code=401, detail="Unauthorized")
 
-    try:
-        # Step 3: send token to Clerk for verification
-        # Clerk checks: signature, expiry, revocation — everything
-        payload = clerk.sessions.verify_token(token)
-        return payload  # contains sub (user_id), email, etc.
+        return auth.session_claims
 
-    except ClerkErrors as e:
-        raise HTTPException(status_code=401, detail=f"Unauthorized: {str(e)}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Server error: {str(e)}")
+        raise HTTPException(status_code=401, detail=str(e))
