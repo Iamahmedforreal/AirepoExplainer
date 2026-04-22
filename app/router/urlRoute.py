@@ -12,10 +12,10 @@ async def submitting_url(
     request: Request,
     payload: TrustedGitHubRepoLink,
     db: AsyncSession = Depends(get_db),
-    token_payload:dict = Depends(verify_token)
+    token_payload = Depends(verify_token)
 ):
     try:
-        user_id = token_payload.sub
+        user_id = token_payload.user_id
         metadata = await extract_repo_info(payload.url)
         result = await save_repo(user_id, metadata, db)
         return {"message": "Repository indexed successfully", "data": result}
