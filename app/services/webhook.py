@@ -32,10 +32,12 @@ async def save_webhook_events(svix_id , event , db):
     try:
         db.add(WebhookEvent(id=svix_id , payload=event))
         await db.commit()
-        
+     
     except SQLAlchemyError as e:
-        logger.error(
-            "[webhook_event_insertion] SQLAlchemyError for inserting webhook event . Error: %s"
-        )
+       await db.rollback()
+       logger.error("[save_webhook_events] Failed to save webhook event: %s", e, exc_info=True)
+       raise  
+        
+  
 
    

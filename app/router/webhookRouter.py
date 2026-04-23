@@ -5,7 +5,7 @@ from svix.webhooks import Webhook
 import os
 import logging
 from dotenv import load_dotenv
-from app.services.webhook import create_new_user
+from app.services.webhook import create_new_user,is_duplicate_webhook , save_webhook_events
 load_dotenv()
 
 logger = logging.getLogger(__name__)
@@ -38,13 +38,19 @@ async def webhook_function(request: Request, db: AsyncSession = Depends(get_db))
         except Exception as error:
             logger.error("Webhook verification failed: %s", error, exc_info=True)
             raise HTTPException(status_code=401, detail=f"Webhook verification failed: {str(error)}")
-
+        
+        svix_id = request.headers.get("svix-id")
+        if not svix_id:
+            raise HTTPException(status_code=400 , details="Missing svix-id header")
+        if await is_duplicate_webhook(svix_id , db):
+            return {"status":"duplicate ignored"}
+        
         # ignore events that are not user.created
-        logger.debug("Processing webhook event of type: %s", event.get("type"))
         if event.get("type") != "user.created":
             logger.info("Ignoring webhook event type: %s", event.get("type"))
             return {"status": "ignored"}
        # get clerk user id
+
         user_id = event.get("data", {}).get("id")
 
         if not user_id:
@@ -53,10 +59,9 @@ async def webhook_function(request: Request, db: AsyncSession = Depends(get_db))
                 status_code=400,
                 detail="Could not extract user id from webhook event"
             )
-
-        logger.info("Creating new user for clerk id: %s", user_id)
+        
+        await save_webhook_events(svix_id , event , db)
         await create_new_user(user_id, db)
-        logger.info("Successfully processed user.created webhook for user id: %s", user_id)
         return {"status": "success"}
 
     except HTTPException:
