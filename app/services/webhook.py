@@ -4,40 +4,30 @@ from requests import session
 import uuid
 from sqlalchemy.exc import SQLAlchemyError 
 from app.models.users import User
-from sqlalchemy import Select, exists, select   
-from fastapi import HTTPException 
+from sqlalchemy import  exists, select   
+from sqlalchemy import IntegrityError 
 
 logger = logging.getLogger(__name__)
 
 async def create_new_user(user_id: str, db) -> User:
-    logger.info("[create_new_user] Attempting to create user: clerk_id=%s", user_id)
+    
     try:
         # check if user already exists
-        logger.debug("[create_new_user] Checking if user already exists: clerk_id=%s", user_id)
+
         if await does_user_exist(user_id, db):
-            logger.warning("[create_new_user] Duplicate user detected: clerk_id=%s", user_id)
             raise ValueError("User already exists")
 
         new_user = User(id=user_id)
-
         db.add(new_user)
-        logger.debug("[create_new_user] Committing new user to database: clerk_id=%s", user_id)
         await db.commit()
         await db.refresh(new_user)  
-        logger.info("[create_new_user] User created successfully: clerk_id=%s", user_id)
-
         return new_user
 
-    except ValueError:
-        raise  
-
-    except SQLAlchemyError as e:
-        logger.error(
-            "[create_new_user] SQLAlchemyError for clerk_id=%s — rolling back. Error: %s",
-            user_id, e, exc_info=True
-        )
+    except IntegrityError:
         await db.rollback()
-        raise Exception(f"Database error while creating user: {str(e)}")
+        logger.warning("user already exist: %s" , user_id)
+        return None
+      
 
 async def does_user_exist(user_id: str, db) -> bool:
     logger.debug("[does_user_exist] Querying existence of user: clerk_id=%s", user_id)
