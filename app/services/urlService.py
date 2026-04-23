@@ -27,8 +27,8 @@ async def extract_repo_info(github_url: str):
         # Step 2 — extract owner and repo name from URL
         owner, repo_owner = await get_owner_and_repo(github_url)
 
-        target_dir = target_dir = os.path.join(os.getcwd(), "cloned_repo")
-        await clone_repository(github_url , target_dir)
+        #clone repo
+        await clone_repository(github_url , f"{owner}_{repo_owner}")
 
 
         repo_metadata = github_client.get_repo(f"{owner}/{repo_owner}")
@@ -67,15 +67,19 @@ def mapMetadataToDbFields(metadata, github_url: str):
         "repoUpdatedAt": metadata.updated_at,
     }
 
-async def clone_repository(url:str , target_dic:str):
+async def clone_repository(url: str, repo_name: str):
     try:
-        if os.path.exists(target_dic):
-            return True
+        target_dir = os.path.join(os.getcwd(), "cloned_repos", repo_name)
         
-        Repo.clone_from(url , target_dic)
-        return True
+        if os.path.exists(target_dir):
+            return target_dir 
+        
+        os.makedirs(target_dir, exist_ok=True)
+        await asyncio.to_thread(Repo.clone_from(url, target_dir))
+        return target_dir
+
     except Exception as error:
-         raise HTTPException(status_code=500, detail=str(error))
+        raise HTTPException(status_code=500, detail=str(error))
 
 
 async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repository | None:
@@ -83,6 +87,7 @@ async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repositor
         existing = await check_existing_repo(user_id, metadata, db)
         if existing:
             return {"message": "Repository already exists", "data": existing}
+
 
         new_repo = Repository(
             id=str(uuid.uuid4()),

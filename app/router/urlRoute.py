@@ -14,11 +14,11 @@ async def submitting_url(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-
-        user_id = "b376575f-4e94-4ec8-a3b3-ed3f1bf12e1c"
+        user_details = authenticate_and_get_user_id(request)
+        user_id = user_details.get("user_id")
         metadata = await extract_repo_info(str(payload.url))
         result = await save_repo(user_id, metadata, db)
-        return {"message": "Repository indexed successfully", "data": result}
+        return {"message": "Repository indexed successfully"}
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))
     except HTTPException:
