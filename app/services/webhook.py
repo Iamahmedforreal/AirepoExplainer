@@ -4,42 +4,38 @@ from requests import session
 import uuid
 from sqlalchemy.exc import SQLAlchemyError 
 from app.models.users import User
-from sqlalchemy import  exists, select   
-from sqlalchemy import IntegrityError 
+from sqlalchemy import  exists, select 
+from sqlalchemy.dialects.postgresql import insert
+from app.models.users import WebhookEvent
+
 
 logger = logging.getLogger(__name__)
 
-async def create_new_user(user_id: str, db) -> User:
-    
+async def create_new_user(user_id: str, db) -> None:
     try:
-        # check if user already exists
-
-        if await does_user_exist(user_id, db):
-            raise ValueError("User already exists")
-
-        new_user = User(id=user_id)
-        db.add(new_user)
+        stmt = insert(User).values(id=user_id).on_conflict_do_nothing(index_elements=["id"])
+        await db.execute(stmt)
         await db.commit()
-        await db.refresh(new_user)  
-        return new_user
-
-    except IntegrityError:
+    except SQLAlchemyError as e:
         await db.rollback()
-        logger.warning("user already exist: %s" , user_id)
-        return None
-      
+        logger.error("[create_new_user] Failed to create user: %s", e, exc_info=True)
+        raise
 
-async def does_user_exist(user_id: str, db) -> bool:
-    logger.debug("[does_user_exist] Querying existence of user: clerk_id=%s", user_id)
+#function for checking webhook duplicate
+async def is_duplicate_webhook(svix_id: str, db) -> bool:
     result = await db.execute(
-        select(exists().where(User.id == user_id))
+        select(WebhookEvent).where(WebhookEvent.id == svix_id)
     )
-    exists_flag = result.scalar()  
-    logger.debug("[does_user_exist] Result for clerk_id=%s: exists=%s", user_id, exists_flag)
-    return exists_flag
+    return result.scalar_one_or_none() is not None
 
-    
-    
-    
+async def save_webhook_events(svix_id , event , db):
+    try:
+        db.add(WebhookEvent(id=svix_id , payload=event))
+        await db.commit()
+        
+    except SQLAlchemyError as e:
+        logger.error(
+            "[webhook_event_insertion] SQLAlchemyError for inserting webhook event . Error: %s"
+        )
 
-
+   
