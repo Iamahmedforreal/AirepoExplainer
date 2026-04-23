@@ -2,7 +2,7 @@
 import enum
 import uuid
 from enum import Enum as PyEnum
-from sqlalchemy import ARRAY, Boolean, Column, DateTime, Enum, Index, Integer, String, Text, ForeignKey, UniqueConstraint, func
+from sqlalchemy import ARRAY, JSON, Boolean, Column, DateTime, Enum, Index, Integer, String, Text, ForeignKey, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, relationship
 from app.models.db import engine
 
@@ -62,6 +62,13 @@ class Repository(Base):
         Index("ix_repositories_language", "language"),
         Index("ix_repositories_status", "status"),
     )
+
+class WebhookEvent(Base):
+    __tablename__ = "webhook_events"
+
+    id = Column(String, primary_key=True)  
+    payload = Column(JSON, nullable=False)  
+    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 async def create_db_and_tables():
     async with engine.begin() as conn:
