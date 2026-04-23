@@ -16,8 +16,7 @@ class RepoStatus(enum.Enum):
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
-    clerk_id = Column(String, unique=True, nullable=False)
+    id = Column(String, primary_key=True)
     createdAt = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updatedAt = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     repositories = relationship("Repository", back_populates="user")

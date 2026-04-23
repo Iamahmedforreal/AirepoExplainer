@@ -5,8 +5,8 @@ from svix.webhooks import Webhook
 import os
 from dotenv import load_dotenv
 from app.services.webhook import create_new_user
-
 load_dotenv()
+
 
 router_webhook = APIRouter()  
 

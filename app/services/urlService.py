@@ -9,6 +9,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 from sqlalchemy.exc import SQLAlchemyError
+import subprocess 
+from fastapi import HTTPException
+from git import Repo
 
 load_dotenv()
 
@@ -22,21 +25,14 @@ async def extract_repo_info(github_url: str):
         await validate_github_repo_url(github_url)
 
         # Step 2 — extract owner and repo name from URL
-        owner, repo_name = await get_owner_and_repo(github_url)
+        owner, repo_owner = await get_owner_and_repo(github_url)
 
-        
-        try:
-            loop = asyncio.get_event_loop()
-            repo_data = await loop.run_in_executor(
-                None,
-                github_client.get_repo,
-                f"{owner}/{repo_name}"
-            )
-            
-            return mapMetadataToDbFields(repo_data, github_url)
+        target_dir = target_dir = os.path.join(os.getcwd(), "cloned_repo")
+        await clone_repository(github_url , target_dir)
 
-        except Exception as error:
-            raise ValueError(f"Error fetching repository from GitHub: {error}")
+
+        repo_metadata = github_client.get_repo(f"{owner}/{repo_owner}")
+        return mapMetadataToDbFields(repo_metadata, github_url)
 
     except Exception as error:
         raise ValueError(f"Failed to extract repo info: {error}")
@@ -48,7 +44,7 @@ async def get_owner_and_repo(github_url: str):
         path_parts = parsed.path.strip("/").split("/")
         if len(path_parts) < 2:
             raise ValueError("URL must contain both owner and repository name")
-        return path_parts[0], path_parts[1]
+        return path_parts[0], path_parts[1].replace(".git", "")
     except Exception as error:
         raise ValueError(f"Invalid GitHub URL: {error}")
 
@@ -70,6 +66,16 @@ def mapMetadataToDbFields(metadata, github_url: str):
         "repoCreatedAt": metadata.created_at,
         "repoUpdatedAt": metadata.updated_at,
     }
+
+async def clone_repository(url:str , target_dic:str):
+    try:
+        if os.path.exists(target_dic):
+            return True
+        
+        Repo.clone_from(url , target_dic)
+        return True
+    except Exception as error:
+         raise HTTPException(status_code=500, detail=str(error))
 
 
 async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repository | None:

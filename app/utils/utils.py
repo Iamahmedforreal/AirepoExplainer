@@ -1,10 +1,10 @@
 from clerk_backend_api import Clerk, AuthenticateRequestOptions
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 import os
 
 clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
 
-async def verify_token(request: Request):
+def authenticate_and_get_user_id(request):
     try:
         request_state = clerk.authenticate_request(
             request,
@@ -18,6 +18,7 @@ async def verify_token(request: Request):
             raise HTTPException(status_code=401, detail="Unauthorized")
 
         user_id = request_state.payload.get("sub")
+        return {"user_id": user_id}
 
     except Exception as e:
         raise HTTPException(status_code=401, detail=str(e))
