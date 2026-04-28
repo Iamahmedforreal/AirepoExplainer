@@ -7,9 +7,12 @@ class Settings(BaseSettings):
     clerk_webhook_secret: str
     jwt_publik_key: str
     clerk_secret_key: str = Field(..., validation_alias="CLEERK_SCERET_KEY")
+    redis_url : str
 
     class Config:
         env_file = ".env"
         extra = "ignore"
 
-settings = Settings()
+settings = Settings()
+
+
