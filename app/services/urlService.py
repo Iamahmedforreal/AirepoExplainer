@@ -10,7 +10,8 @@ import uuid
 from sqlalchemy.exc import SQLAlchemyError
 from fastapi import HTTPException
 from git import Repo
-from app.schema.config import settings
+from app.config.config import settings
+from app.celery.task import clone_repository
 
 # Wrap token in Github client, not raw string
 github_client = Github(settings.github_api_key)
@@ -23,13 +24,14 @@ async def extract_repo_info(github_url: str):
         await validate_github_repo_url(github_url)
 
         # Step 2 — extract owner and repo name from URL
-        owner, repo_owner = await get_owner_and_repo(github_url)
+        owner, repo_name = await get_owner_and_repo(github_url)
 
-        #clone repo
-        await clone_repository(github_url , f"{owner}_{repo_owner}")
+        directory_name = os.path.join("cloned_repos", f"{owner}_{repo_name}")
 
+        repo_metadata = github_client.get_repo(f"{owner}/{repo_name}")
 
-        repo_metadata = github_client.get_repo(f"{owner}/{repo_owner}")
+        clone_repository.delay(github_url, directory_name)
+
         return mapMetadataToDbFields(repo_metadata, github_url)
 
     except Exception as error:
@@ -65,19 +67,6 @@ def mapMetadataToDbFields(metadata, github_url: str):
         "repoUpdatedAt": metadata.updated_at,
     }
 
-async def clone_repository(url: str, repo_name: str):
-    try:
-        target_dir = os.path.join(os.getcwd(), "cloned_repos", repo_name)
-        
-        if os.path.exists(target_dir):
-            return target_dir 
-        
-        os.makedirs(target_dir, exist_ok=True)
-        await asyncio.to_thread(Repo.clone_from(url, target_dir))
-        return target_dir
-
-    except Exception as error:
-        raise HTTPException(status_code=500, detail=str(error))
 
 
 async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repository | None:
