@@ -1,7 +1,6 @@
 from urllib.parse import urlparse
 import os
 import asyncio
-from dotenv import load_dotenv
 from github import Github
 from app.services.validation import validate_github_repo_url
 from app.models.users import RepoStatus, Repository
@@ -9,14 +8,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 import uuid
 from sqlalchemy.exc import SQLAlchemyError
-import subprocess 
 from fastapi import HTTPException
 from git import Repo
-
-load_dotenv()
+from app.schema.config import settings
 
 # Wrap token in Github client, not raw string
-github_client = Github(os.getenv("GITHUB_API_KEY"))
+github_client = Github(settings.github_api_key)
+
 
 
 async def extract_repo_info(github_url: str):

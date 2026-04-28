@@ -13,16 +13,17 @@ from alembic import context
 # access to the values within the .ini file in use.
 config = context.config
 
+from app.schema.config import settings
+
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-load_dotenv()
-
 # If DATABASE_URL is set in .env, use it for Alembic migrations.
-if os.getenv("DATABASE_URL"):
-    config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
+if settings.database_url:
+    config.set_main_option("sqlalchemy.url", settings.database_url)
+
 
 # Import your models so metadata is available for autogenerate.
 from app.models.users import Base

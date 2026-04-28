@@ -2,11 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.db import get_db
 from svix.webhooks import Webhook
-import os
 import logging
-from dotenv import load_dotenv
-from app.services.webhook import create_new_user,is_duplicate_webhook , save_webhook_events
-load_dotenv()
+from app.services.webhook import create_new_user, is_duplicate_webhook, save_webhook_events
+from app.schema.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -18,13 +16,14 @@ async def webhook_function(request: Request, db: AsyncSession = Depends(get_db))
     logger.info("Received incoming Clerk webhook request")
     try:
         # check secret exists
-        webhook_secret = os.getenv("CLERK_WEBHOOK_SECRET")
+        webhook_secret = settings.clerk_webhook_secret
         if not webhook_secret:
             logger.error("CLERK_WEBHOOK_SECRET is not set")
             raise HTTPException(
                 status_code=500,
                 detail="CLERK_WEBHOOK_SECRET is not set"
             )
+
 
         payload = await request.body()
         headers = dict(request.headers)
@@ -41,7 +40,8 @@ async def webhook_function(request: Request, db: AsyncSession = Depends(get_db))
         
         svix_id = request.headers.get("svix-id")
         if not svix_id:
-            raise HTTPException(status_code=400 , details="Missing svix-id header")
+            raise HTTPException(status_code=400, detail="Missing svix-id header")
+
         if await is_duplicate_webhook(svix_id , db):
             return {"status":"duplicate ignored"}
         

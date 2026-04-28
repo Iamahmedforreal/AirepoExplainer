@@ -1,8 +1,8 @@
 from clerk_backend_api import Clerk, AuthenticateRequestOptions
 from fastapi import HTTPException
-import os
+from app.schema.config import settings
 
-clerk = Clerk(bearer_auth=os.getenv("CLERK_SECRET_KEY"))
+clerk = Clerk(bearer_auth=settings.clerk_secret_key)
 
 def authenticate_and_get_user_id(request):
     try:
@@ -10,9 +10,10 @@ def authenticate_and_get_user_id(request):
             request,
             AuthenticateRequestOptions(
                 authorized_parties=["http://localhost:5173"],
-                jwt_key=os.getenv("JWT_PUBLIK_KEY")
+                jwt_key=settings.jwt_publik_key
             )
         )
+
 
         if not request_state.is_signed_in:
             raise HTTPException(status_code=401, detail="Unauthorized")
