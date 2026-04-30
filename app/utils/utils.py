@@ -1,6 +1,6 @@
 from clerk_backend_api import Clerk, AuthenticateRequestOptions
 from fastapi import HTTPException
-from app.schema.config import settings
+from app.config.app_config import settings
 
 clerk = Clerk(bearer_auth=settings.clerk_secret_key)
 

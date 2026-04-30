@@ -4,7 +4,7 @@ from app.models.db import get_db
 from svix.webhooks import Webhook
 import logging
 from app.services.webhook import create_new_user, is_duplicate_webhook, save_webhook_events
-from app.schema.config import settings
+from app.config.app_config import settings
 
 logger = logging.getLogger(__name__)
 

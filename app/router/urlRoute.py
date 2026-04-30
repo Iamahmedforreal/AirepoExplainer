@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.celery.task import clone_repository
-from app.config.config import settings
+from app.config.app_config import settings
 from app.models.db import get_db
 from app.schema.urlSchema import TrustedGitHubRepoLink
 from app.services.urlService import check_existing_repo, extract_repo_info, save_repo

@@ -1,5 +1,5 @@
 from celery import Celery
-from app.config.config import settings
+from app.config.app_config import settings
 
 redis_url= settings.redis_url
 
@@ -17,3 +17,4 @@ app.conf.update(
     enable_utc=True,
     task_track_started=True,
 )
+
