@@ -1,19 +1,6 @@
 import httpx
 from urllib.parse import urlparse
 import re
-from pydantic import BaseModel, HttpUrl, field_validator
-from typing import Optional
-
-async def check_url_reachable(url: str) -> None:
-    timeout = httpx.Timeout(5.0)
-    async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
-        try:
-            response = await client.head(url)
-        except httpx.RequestError:
-            raise ValueError("URL is unreachable (network error)")
-
-    if response.status_code >= 400:
-        raise ValueError(f"URL is unreachable (status {response.status_code})")
 
 
 async def validate_github_repo_url(url: str) -> bool:
@@ -30,8 +17,6 @@ async def validate_github_repo_url(url: str) -> bool:
     if not re.fullmatch(r"/[A-Za-z0-9-]+/[A-Za-z0-9_.-]+/?", parsed.path):
         raise ValueError("URL must be exactly: https://github.com/owner/repo")
 
-
-    await check_url_reachable(url)
 
     return True
 
