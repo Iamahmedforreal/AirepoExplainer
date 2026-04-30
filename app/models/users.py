@@ -61,6 +61,7 @@ class Repository(Base):
         Index("ix_repositories_userId", "userId"),
         Index("ix_repositories_language", "language"),
         Index("ix_repositories_status", "status"),
+        Index("ix_repositories_githubUrl", "githubUrl")
     )
 
 class WebhookEvent(Base):
