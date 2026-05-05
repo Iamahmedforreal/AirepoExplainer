@@ -6,15 +6,23 @@ from app.models.users import create_db_and_tables, Base
 from contextlib import asynccontextmanager
 from app.router.urlRoute import router
 from app.router.webhookRouter import router_webhook
+from arq.connections import RedisSettings
+from arq import create_pool
+
 
 logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Create database tables on startup
     await create_db_and_tables()
+    app.state.redis = await create_pool(RedisSettings(host="localhost", port=6379))
+
     yield
 
+    await app.state.redis.close()
+
 app = FastAPI(lifespan=lifespan)
+redis = None
 
 # Add CORS middleware
 app.add_middleware(
@@ -38,6 +46,7 @@ async def log_time(request: Request, call_next):
     return response
 
 
+    
 # Include routers
 app.include_router(router)
 app.include_router(router_webhook)

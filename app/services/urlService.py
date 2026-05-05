@@ -1,11 +1,7 @@
 from datetime import datetime
-import os
-import shutil
 from urllib.parse import urlparse
 import uuid
 from cachetools import TTLCache
-from git import GitCommandError, Repo
-from github import Github
 import httpx
 from sqlalchemy import select , and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,8 +15,6 @@ from datetime import datetime
 _http_client: httpx.AsyncClient | None = None
 _repo_cache: TTLCache = TTLCache(maxsize=500, ttl=300) 
 
-
-github_client = Github(settings.github_api_key)
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -50,10 +44,7 @@ def _parse_github_date(date_str: str | None):
 
 
 async def _fetch_repo_from_github(owner: str, repo_name: str) -> dict:
-    """
-    Call GitHub REST API directly — fully async, never blocks the event loop.
-    Caches successful responses for 5 minutes.
-    """
+
     cache_key = f"{owner}/{repo_name}"
 
     if cache_key in _repo_cache:
@@ -91,9 +82,7 @@ async def extract_repo_info(github_url: str):
         owner, repo_name = await get_owner_and_repo(github_url)
         raw= await _fetch_repo_from_github(owner, repo_name)
         metadata =  _map_metadata_to_db_fields(raw, github_url)
-        return metadata, owner, repo_name
-    
-    
+        return metadata , owner , repo_name
     except Exception as error:
         raise ValueError(f"Failed to extract repo info: {error}")
 
@@ -112,7 +101,7 @@ async def get_owner_and_repo(github_url: str):
 
 
 def _parse_github_date(date_str: str | None):
-    """Convert GitHub's ISO string → real datetime object."""
+    
     if not date_str:
         return None
     return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
@@ -138,6 +127,7 @@ def _map_metadata_to_db_fields(data: dict, github_url: str) -> dict:
         "repoCreatedAt":  _parse_github_date(data.get("created_at")),
         "repoUpdatedAt":  _parse_github_date(data.get("updated_at")),
     }
+
 
 async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repository:
     try:
@@ -184,24 +174,3 @@ async def check_existing_repo(user_id: str, github_url: str, db: AsyncSession):
     )
     result = await db.execute(query)
     return result.scalars().first()
-
-
-def clone_repository(url: str, target_dir: str):
-    try:
-        if os.path.exists(target_dir):
-            shutil.rmtree(target_dir)
-            
-        os.makedirs(target_dir, exist_ok=True)
-        Repo.clone_from(url, target_dir)
-        return {"status": "success"}
-
-    except GitCommandError as e:
-        shutil.rmtree(target_dir, ignore_errors=True)
-        raise self.retry(exc=e)
-
-    except Exception as e:
-        shutil.rmtree(target_dir, ignore_errors=True)
-        raise 
-
-
-

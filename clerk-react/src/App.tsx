@@ -7,7 +7,7 @@ import { setupInterceptor } from "./libs/api.ts";
 
 function App() {
   const { getToken, isSignedIn, isLoaded } = useAuth();
-  
+ 
 
   useEffect(() => {
     if (!isLoaded) return;

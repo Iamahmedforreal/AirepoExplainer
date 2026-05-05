@@ -1,10 +1,7 @@
 import logging
-
-from requests import session
-import uuid
 from sqlalchemy.exc import SQLAlchemyError 
 from app.models.users import User
-from sqlalchemy import  exists, select 
+from sqlalchemy import  select 
 from sqlalchemy.dialects.postgresql import insert
 from app.models.users import WebhookEvent
 

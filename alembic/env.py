@@ -13,7 +13,7 @@ from alembic import context
 # access to the values within the .ini file in use.
 config = context.config
 
-from app.schema.config import settings
+from app.config.app_config import settings
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
