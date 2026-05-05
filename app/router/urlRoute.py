@@ -1,14 +1,15 @@
 
-import os
-import time
-from fastapi import APIRouter, Depends, HTTPException, Request  , BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.config.app_config import Settings
 from app.models.db import get_db
 from app.schema.urlSchema import TrustedGitHubRepoLink
-from app.services.urlService import check_existing_repo, extract_repo_info, save_repo
+from app.services.urlService import (
+    check_existing_repo,
+    extract_repo_info,
+    fetch_repo_tree,
+    save_repo,
+)
 from app.utils.utils import authenticate_and_get_user_id
-from app.config.app_config import settings
 
 
 router = APIRouter(prefix="/api", tags=["repositories"])
@@ -21,23 +22,25 @@ async def submitting_url(
     db: AsyncSession = Depends(get_db),
 ):
     try:
-        redis = request.app.state.redis
         user_details = authenticate_and_get_user_id(request)
         user_id = user_details.get("user_id")
 
         metadata, owner, repo_name = await extract_repo_info(str(payload.url))
-    
+
         existing_repo = await check_existing_repo(user_id, metadata.get("githubUrl"), db)
         if existing_repo:
             return {"message": "Repository already indexed"}
 
         await save_repo(user_id, metadata, db)
-        local_path = os.path.join(settings.clone_base_dir, f"{owner}_{repo_name}")
-        
-        await redis.enqueue_job('clone_repository', metadata.get("githubUrl") , local_path)
-                    
-        return {"message": "Repository indexed successfully"}
-    
+
+        # Fetch the full file tree via GitHub Trees API (no cloning)
+        branch = metadata.get("defaultBranch", "main")
+        tree_data = await fetch_repo_tree(owner, repo_name, branch)
+
+        return {
+            "message": "Repository indexed successfully",
+            "tree": tree_data,
+        }
 
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error))

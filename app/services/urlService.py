@@ -1,7 +1,6 @@
 from datetime import datetime
 from urllib.parse import urlparse
 import uuid
-from cachetools import TTLCache
 import httpx
 from sqlalchemy import select , and_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +12,7 @@ from datetime import datetime
 
 
 _http_client: httpx.AsyncClient | None = None
-_repo_cache: TTLCache = TTLCache(maxsize=500, ttl=300) 
+ 
 
 
 
@@ -43,24 +42,51 @@ def _parse_github_date(date_str: str | None):
     return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
 
 
+"""Service layer for handling GitHub repository data extraction, caching, and database interactions."""
 async def _fetch_repo_from_github(owner: str, repo_name: str) -> dict:
-
-    cache_key = f"{owner}/{repo_name}"
-
-    if cache_key in _repo_cache:
-        return _repo_cache[cache_key]
-
     client = _get_client()
-
+    
     try:
-        response = await client.get(f"/repos/{cache_key}")
+        response = await client.get(
+            f"/repos/{owner}/{repo_name}",
+            timeout=10.0   # don't hang forever
+        )
+
         if response.status_code == 404:
-            raise ValueError(f"Repository not found: {cache_key}")
+            raise ValueError(f"Repository not found: {owner}/{repo_name}")
 
         if response.status_code in (403, 429):
-            # Rate limited — serve stale cache if we have it
-            if cache_key in _repo_cache:
-                return _repo_cache[cache_key]
+            reset = response.headers.get("X-RateLimit-Reset", "unknown")
+            raise RuntimeError(f"GitHub rate limit hit. Resets at: {reset}")
+
+        response.raise_for_status()
+        return response.json()
+
+    except httpx.TimeoutException:
+        raise RuntimeError(f"GitHub timed out fetching {owner}/{repo_name}")
+
+    except httpx.ConnectError:
+        raise RuntimeError(f"Could not connect to GitHub")
+    
+"""Service layer for handling GitHub repository data extraction, caching, and database interactions."""
+async def fetch_repo_tree(owner: str, repo_name: str, branch: str) -> dict:
+    client = _get_client()
+    endpoint = f"/repos/{owner}/{repo_name}/git/trees/{branch}"
+
+    try:
+        response = await client.get(endpoint, params={"recursive": "1"})
+
+        if response.status_code == 404:
+            raise ValueError(
+                f"Repository or branch not found: {owner}/{repo_name} @ {branch}"
+            )
+
+        if response.status_code == 409:
+            raise ValueError(
+                f"Repository is empty: {owner}/{repo_name}"
+            )
+
+        if response.status_code in (403, 429):
             raise RuntimeError(
                 f"GitHub rate limit reached. "
                 f"Resets at: {response.headers.get('X-RateLimit-Reset', 'unknown')}"
@@ -68,14 +94,31 @@ async def _fetch_repo_from_github(owner: str, repo_name: str) -> dict:
 
         response.raise_for_status()
         data = response.json()
-        _repo_cache[cache_key] = data
-        return data
+
+        tree_items = data.get("tree", [])
+
+        return {
+            "sha": data.get("sha"),
+            "total_count": len(tree_items),
+            "tree": [
+                {
+                    "path": item.get("path"),
+                    "type": item.get("type"),  
+                    "size": item.get("size"),    
+                    "sha": item.get("sha"),
+                }
+                for item in tree_items
+            ],
+            "truncated": data.get("truncated", False),
+        }
 
     except httpx.TimeoutException:
-        raise RuntimeError(f"GitHub API timed out after 5s — {cache_key}")
+        raise RuntimeError(
+            f"GitHub API timed out fetching tree: {owner}/{repo_name} @ {branch}"
+        )
     except httpx.HTTPStatusError as e:
         raise RuntimeError(f"GitHub API error {e.response.status_code}: {e}")
-    
+
 
 async def extract_repo_info(github_url: str):
     try:
