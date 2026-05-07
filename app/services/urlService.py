@@ -13,6 +13,38 @@ from datetime import datetime
 
 _http_client: httpx.AsyncClient | None = None
  
+EXCLUDED_EXTENSIONS = {
+    # docs
+    ".md", ".mdx", ".rst", ".txt", ".pdf", ".doc", ".docx",
+    # config / env
+    ".env", ".env.example", ".env.local", ".env.sample",
+    # images
+    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp",
+    # fonts
+    ".ttf", ".woff", ".woff2", ".eot",
+    # videos / audio
+    ".mp4", ".mp3", ".wav", ".avi",
+    # archives
+    ".zip", ".tar", ".gz", ".rar",
+    # compiled / binary
+    ".pyc", ".pyo", ".exe", ".dll", ".so", ".class",
+    # lock files
+    ".lock",
+}
+
+EXCLUDED_FILENAMES = {
+    # docs
+    "README.md", "README", "CHANGELOG.md", "CHANGELOG",
+    "CONTRIBUTING.md", "LICENSE", "LICENSE.md", "NOTICE",
+    # env examples
+    ".env.example", ".env.sample", ".env.template",
+    # editor config
+    ".editorconfig", ".prettierrc", ".eslintrc",
+    # git
+    ".gitignore", ".gitattributes", ".gitmodules",
+    # ci
+    "Makefile",
+}
 
 
 
@@ -49,7 +81,7 @@ async def _fetch_repo_from_github(owner: str, repo_name: str) -> dict:
     try:
         response = await client.get(
             f"/repos/{owner}/{repo_name}",
-            timeout=10.0   # don't hang forever
+            timeout=10.0   
         )
 
         if response.status_code == 404:
@@ -68,6 +100,7 @@ async def _fetch_repo_from_github(owner: str, repo_name: str) -> dict:
     except httpx.ConnectError:
         raise RuntimeError(f"Could not connect to GitHub")
     
+
 """Service layer for handling GitHub repository data extraction, caching, and database interactions."""
 async def fetch_repo_tree(owner: str, repo_name: str, branch: str) -> dict:
     client = _get_client()
