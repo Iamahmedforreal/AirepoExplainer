@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 from urllib.parse import urlparse
 import uuid
 import httpx
@@ -44,6 +45,19 @@ EXCLUDED_FILENAMES = {
     ".gitignore", ".gitattributes", ".gitmodules",
     # ci
     "Makefile",
+}
+EXCLUDED_DIRECTORIES = {
+    # dependencies
+    "node_modules", "venv", ".venv", "env", "__pycache__",
+    "site-packages", ".tox", "dist", "build", "eggs",
+    # version control
+    ".git", ".svn", ".hg",
+    # ide
+    ".idea", ".vscode", ".vs",
+    # test artifacts
+    "coverage", ".coverage", ".pytest_cache", ".mypy_cache",
+    # frontend build
+    ".next", ".nuxt", "out", ".cache",
 }
 
 
@@ -151,6 +165,46 @@ async def fetch_repo_tree(owner: str, repo_name: str, branch: str) -> dict:
         )
     except httpx.HTTPStatusError as e:
         raise RuntimeError(f"GitHub API error {e.response.status_code}: {e}")
+async def clean_tree_data(tree: list[dict]) -> list[dict]:
+    """Remove files with excluded extensions or filenames from the tree."""
+    cleaned = []
+
+    
+    for item in tree:
+        # skip folders entirely since we only care about files, and we can exclude based on filename and extension
+        if item["type"] != "blob":
+            continue
+        path: str = item.get("path", "")
+        parts = path.split("/")
+        filename = parts[-1]
+
+         # skip if any parent directory is excluded
+        parent_dir = parts[:-1]
+        if any(d in EXCLUDED_DIRECTORIES for d in parent_dir):
+            continue
+
+         # skip excluded filenames
+        if filename in EXCLUDED_FILENAMES:
+            continue
+        
+        # skip excluded extensions
+        _, ext = os.path.splitext(filename)
+        if ext.lower() in EXCLUDED_EXTENSIONS:
+            continue
+
+         # skip hidden files (.DS_Store, .eslintrc etc)
+        if filename.startswith("."):
+            continue
+
+       # skip empty files
+        if item.get("size", 0) == 0:
+            continue
+
+        cleaned.append(item)
+
+    return cleaned
+
+        
 
 
 async def extract_repo_info(github_url: str):

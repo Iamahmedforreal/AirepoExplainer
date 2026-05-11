@@ -26,7 +26,7 @@ if settings.database_url:
 
 
 # Import your models so metadata is available for autogenerate.
-from app.models.users import Base
+from app.models.repo_models import Base
   # noqa: F401
 
 target_metadata = Base.metadata

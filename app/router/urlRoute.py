@@ -1,14 +1,8 @@
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.db import get_db
 from app.schema.urlSchema import TrustedGitHubRepoLink
-from app.services.urlService import (
-    check_existing_repo,
-    extract_repo_info,
-    fetch_repo_tree,
-    save_repo,
-)
+from app.services.urlService import check_existing_repo, extract_repo_info,   fetch_repo_tree,  save_repo , clean_tree_data
 from app.utils.utils import authenticate_and_get_user_id
 
 
@@ -29,17 +23,17 @@ async def submitting_url(
 
         existing_repo = await check_existing_repo(user_id, metadata.get("githubUrl"), db)
         if existing_repo:
-            return {"message": "Repository already indexed"}
+            raise HTTPException(status_code=400, detail="Repository already indexed")
 
         await save_repo(user_id, metadata, db)
 
         # Fetch the full file tree via GitHub Trees API (no cloning)
         branch = metadata.get("defaultBranch", "main")
         tree_data = await fetch_repo_tree(owner, repo_name, branch)
-
+        cleaned_tree_data = await clean_tree_data(tree_data["tree"])
         return {
             "message": "Repository indexed successfully",
-            "tree": tree_data,
+            "tree": cleaned_tree_data,
         }
 
     except ValueError as error:
