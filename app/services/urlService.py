@@ -1,69 +1,45 @@
-from datetime import datetime
+"""
+Service layer for GitHub repository operations.
+
+Responsibilities:
+    - GitHub API communication (repo metadata, file tree)
+    - Tree filtering (remove non-source files)
+    - Metadata normalization (GitHub response -> DB fields)
+    - Repository persistence (save, duplicate check)
+
+All GitHub API calls share a single httpx.AsyncClient instance created
+on first use and reused for the lifetime of the process.
+"""
+
 import os
-from urllib.parse import urlparse
 import uuid
-import httpx
-from sqlalchemy import select , and_
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.exc import SQLAlchemyError
-from app.models.users import RepoStatus, Repository
-from app.config.app_config import settings
-from urllib.parse import urlparse
 from datetime import datetime
+from urllib.parse import urlparse
+
+import httpx
+from sqlalchemy import and_, select
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config.app_config import settings
+from app.models.repo_models import RepoStatus, Repository
+
+
+
+# HTTP client
 
 
 _http_client: httpx.AsyncClient | None = None
- 
-EXCLUDED_EXTENSIONS = {
-    # docs
-    ".md", ".mdx", ".rst", ".txt", ".pdf", ".doc", ".docx",
-    # config / env
-    ".env", ".env.example", ".env.local", ".env.sample",
-    # images
-    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp",
-    # fonts
-    ".ttf", ".woff", ".woff2", ".eot",
-    # videos / audio
-    ".mp4", ".mp3", ".wav", ".avi",
-    # archives
-    ".zip", ".tar", ".gz", ".rar",
-    # compiled / binary
-    ".pyc", ".pyo", ".exe", ".dll", ".so", ".class",
-    # lock files
-    ".lock",
-}
-
-EXCLUDED_FILENAMES = {
-    # docs
-    "README.md", "README", "CHANGELOG.md", "CHANGELOG",
-    "CONTRIBUTING.md", "LICENSE", "LICENSE.md", "NOTICE",
-    # env examples
-    ".env.example", ".env.sample", ".env.template",
-    # editor config
-    ".editorconfig", ".prettierrc", ".eslintrc",
-    # git
-    ".gitignore", ".gitattributes", ".gitmodules",
-    # ci
-    "Makefile",
-}
-EXCLUDED_DIRECTORIES = {
-    # dependencies
-    "node_modules", "venv", ".venv", "env", "__pycache__",
-    "site-packages", ".tox", "dist", "build", "eggs",
-    # version control
-    ".git", ".svn", ".hg",
-    # ide
-    ".idea", ".vscode", ".vs",
-    # test artifacts
-    "coverage", ".coverage", ".pytest_cache", ".mypy_cache",
-    # frontend build
-    ".next", ".nuxt", "out", ".cache",
-}
-
 
 
 def _get_client() -> httpx.AsyncClient:
-    """Return the shared async client, creating it once on first call."""
+    """
+    Return the shared GitHub API client, creating it on first call.
+
+    The client is reused across all requests to avoid the overhead of
+    establishing a new TCP connection per call. A new client is created
+    only if the existing one has been closed.
+    """
     global _http_client
     if _http_client is None or _http_client.is_closed:
         _http_client = httpx.AsyncClient(
@@ -81,21 +57,81 @@ def _get_client() -> httpx.AsyncClient:
     return _http_client
 
 
-def _parse_github_date(date_str: str | None):
-    """Convert GitHub's ISO string → real datetime object."""
-    if not date_str:
-        return None
-    return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+
+# Tree filtering constants
 
 
-"""Service layer for handling GitHub repository data extraction, caching, and database interactions."""
+# File extensions that carry no value for code understanding or embedding.
+# Extend these sets as new irrelevant file types are encountered in the wild.
+EXCLUDED_EXTENSIONS = {
+    # docs
+    ".md", ".mdx", ".rst", ".txt", ".pdf", ".doc", ".docx",
+    # config / env
+    ".env", ".env.example", ".env.local", ".env.sample",
+    # images
+    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp",
+    # fonts
+    ".ttf", ".woff", ".woff2", ".eot",
+    # video / audio
+    ".mp4", ".mp3", ".wav", ".avi",
+    # archives
+    ".zip", ".tar", ".gz", ".rar",
+    # compiled / binary — not human-readable, useless for RAG
+    ".pyc", ".pyo", ".exe", ".dll", ".so", ".class",
+    # lock files — auto-generated, never contains business logic
+    ".lock",
+}
+
+# Exact filenames that should be dropped regardless of extension.
+EXCLUDED_FILENAMES = {
+    # project docs
+    "README.md", "README", "CHANGELOG.md", "CHANGELOG",
+    "CONTRIBUTING.md", "LICENSE", "LICENSE.md", "NOTICE",
+    # env templates
+    ".env.example", ".env.sample", ".env.template",
+    # editor / linter config
+    ".editorconfig", ".prettierrc", ".eslintrc",
+    # version control config
+    ".gitignore", ".gitattributes", ".gitmodules",
+    # build orchestration
+    "Makefile",
+}
+
+# Directory names that indicate generated, vendored, or non-source content.
+# Checked against every path segment, not just the top-level directory.
+EXCLUDED_DIRECTORIES = {
+    # dependency trees
+    "node_modules", "venv", ".venv", "env", "__pycache__",
+    "site-packages", ".tox", "dist", "build", "eggs",
+    # version control internals
+    ".git", ".svn", ".hg",
+    # IDE state
+    ".idea", ".vscode", ".vs",
+    # test / type-check caches
+    "coverage", ".coverage", ".pytest_cache", ".mypy_cache",
+    # frontend build output
+    ".next", ".nuxt", "out", ".cache",
+}
+
+
+
+# GitHub API calls
+
+
 async def _fetch_repo_from_github(owner: str, repo_name: str) -> dict:
+    """
+    Fetch repository metadata from the GitHub REST API.
+
+    Returns the raw GitHub response dict on success.
+    Raises ValueError for 404 (repo not found).
+    Raises RuntimeError for rate limit errors and network failures.
+    """
     client = _get_client()
-    
+
     try:
         response = await client.get(
             f"/repos/{owner}/{repo_name}",
-            timeout=10.0   
+            timeout=10.0
         )
 
         if response.status_code == 404:
@@ -112,11 +148,25 @@ async def _fetch_repo_from_github(owner: str, repo_name: str) -> dict:
         raise RuntimeError(f"GitHub timed out fetching {owner}/{repo_name}")
 
     except httpx.ConnectError:
-        raise RuntimeError(f"Could not connect to GitHub")
-    
+        raise RuntimeError("Could not connect to GitHub")
 
-"""Service layer for handling GitHub repository data extraction, caching, and database interactions."""
+
 async def fetch_repo_tree(owner: str, repo_name: str, branch: str) -> dict:
+    """
+    Fetch the full recursive file tree for a repository branch.
+
+    Uses the Git Trees API with recursive=1 to retrieve all paths in a
+    single request rather than traversing directories individually.
+
+    Returns a normalised dict:
+        sha          - tree SHA at time of fetch
+        total_count  - total items before any filtering
+        tree         - list of {path, type, size, sha} dicts
+        truncated    - True if GitHub capped the response (repo > ~100k files)
+
+    Raises ValueError for 404 (repo/branch not found) and 409 (empty repo).
+    Raises RuntimeError for rate limit errors and network failures.
+    """
     client = _get_client()
     endpoint = f"/repos/{owner}/{repo_name}/git/trees/{branch}"
 
@@ -129,9 +179,7 @@ async def fetch_repo_tree(owner: str, repo_name: str, branch: str) -> dict:
             )
 
         if response.status_code == 409:
-            raise ValueError(
-                f"Repository is empty: {owner}/{repo_name}"
-            )
+            raise ValueError(f"Repository is empty: {owner}/{repo_name}")
 
         if response.status_code in (403, 429):
             raise RuntimeError(
@@ -141,22 +189,21 @@ async def fetch_repo_tree(owner: str, repo_name: str, branch: str) -> dict:
 
         response.raise_for_status()
         data = response.json()
-
         tree_items = data.get("tree", [])
 
         return {
-            "sha": data.get("sha"),
+            "sha":         data.get("sha"),
             "total_count": len(tree_items),
+            "truncated":   data.get("truncated", False),
             "tree": [
                 {
                     "path": item.get("path"),
-                    "type": item.get("type"),  
-                    "size": item.get("size"),    
-                    "sha": item.get("sha"),
+                    "type": item.get("type"),
+                    "size": item.get("size"),
+                    "sha":  item.get("sha"),
                 }
                 for item in tree_items
             ],
-            "truncated": data.get("truncated", False),
         }
 
     except httpx.TimeoutException:
@@ -165,38 +212,54 @@ async def fetch_repo_tree(owner: str, repo_name: str, branch: str) -> dict:
         )
     except httpx.HTTPStatusError as e:
         raise RuntimeError(f"GitHub API error {e.response.status_code}: {e}")
+
+
+
+# Tree filtering
+
+
 async def clean_tree_data(tree: list[dict]) -> list[dict]:
-    """Remove files with excluded extensions or filenames from the tree."""
+    """
+    Remove non-source files from a raw GitHub tree response.
+
+    Filters out:
+        - directories (type != blob)
+        - files inside excluded directories (e.g. node_modules, venv)
+        - files with excluded names (e.g. README.md, Makefile)
+        - files with excluded extensions (e.g. .png, .lock)
+        - hidden files (dotfiles like .DS_Store, .eslintrc)
+        - empty files (size == 0, nothing to embed)
+    """
     cleaned = []
 
-    
     for item in tree:
-        # skip folders entirely since we only care about files, and we can exclude based on filename and extension
+        # directories have no content 
         if item["type"] != "blob":
             continue
+
         path: str = item.get("path", "")
         parts = path.split("/")
         filename = parts[-1]
+        parent_dirs = parts[:-1]
 
-         # skip if any parent directory is excluded
-        parent_dir = parts[:-1]
-        if any(d in EXCLUDED_DIRECTORIES for d in parent_dir):
+        # drop anything nested inside an excluded directory
+        if any(d in EXCLUDED_DIRECTORIES for d in parent_dirs):
             continue
 
-         # skip excluded filenames
+        # drop files whose name is on the exclusion list
         if filename in EXCLUDED_FILENAMES:
             continue
-        
-        # skip excluded extensions
+
+        # drop files whose extension is on the exclusion list
         _, ext = os.path.splitext(filename)
         if ext.lower() in EXCLUDED_EXTENSIONS:
             continue
 
-         # skip hidden files (.DS_Store, .eslintrc etc)
+        # drop dotfiles — editor config, tool config, OS metadata
         if filename.startswith("."):
             continue
 
-       # skip empty files
+        # drop empty files — nothing to embed
         if item.get("size", 0) == 0:
             continue
 
@@ -204,20 +267,45 @@ async def clean_tree_data(tree: list[dict]) -> list[dict]:
 
     return cleaned
 
-        
+
+# Metadata extraction and normalisation
+
+def _parse_github_date(date_str: str | None) -> datetime | None:
+    """
+    Convert a GitHub ISO 8601 timestamp string to a timezone-aware datetime.
+    Returns None if the input is missing or empty.
+    """
+    if not date_str:
+        return None
+    return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
 
 
-async def extract_repo_info(github_url: str):
-    try:
-        owner, repo_name = await get_owner_and_repo(github_url)
-        raw= await _fetch_repo_from_github(owner, repo_name)
-        metadata =  _map_metadata_to_db_fields(raw, github_url)
-        return metadata , owner , repo_name
-    except Exception as error:
-        raise ValueError(f"Failed to extract repo info: {error}")
+def _map_metadata_to_db_fields(data: dict, github_url: str) -> dict:
+    """
+    Normalise a raw GitHub API response into the fields expected by Repository.
+    """
+    license_info = data.get("license") or {}
+    owner_info   = data.get("owner") or {}
+
+    return {
+        "githubUrl":     github_url,
+        "repoName":      data.get("name"),
+        "repoOwner":     owner_info.get("login"),
+        "defaultBranch": data.get("default_branch"),
+        "isPrivate":     data.get("private", False),
+        "description":   data.get("description"),
+        "language":      data.get("language"),
+        "topics":        data.get("topics", []),
+    }
 
 
-async def get_owner_and_repo(github_url: str):
+async def get_owner_and_repo(github_url: str) -> tuple[str, str]:
+    """
+    Parse owner and repository name from a GitHub URL.
+
+    Handles both HTTPS and .git-suffixed URLs.
+    Raises ValueError if the URL does not contain a valid owner/repo path.
+    """
     try:
         parsed = urlparse(github_url)
         path_parts = parsed.path.strip("/").split("/")
@@ -228,38 +316,41 @@ async def get_owner_and_repo(github_url: str):
         raise ValueError(f"Invalid GitHub URL: {error}")
 
 
+async def extract_repo_info(github_url: str) -> tuple[dict, str, str]:
+    """
+    Fetch and normalise all information needed to create a Repository record.
+
+    Returns:
+        metadata   - normalised dict ready for save_repo()
+        owner      - GitHub owner login
+        repo_name  - repository name
+
+    Raises ValueError on any failure so the caller gets a single,
+    consistent error type regardless of what went wrong internally.
+    """
+    try:
+        owner, repo_name = await get_owner_and_repo(github_url)
+        raw = await _fetch_repo_from_github(owner, repo_name)
+        metadata = _map_metadata_to_db_fields(raw, github_url)
+        return metadata, owner, repo_name
+    except Exception as error:
+        raise ValueError(f"Failed to extract repo info: {error}")
 
 
-def _parse_github_date(date_str: str | None):
-    
-    if not date_str:
-        return None
-    return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
-
-
-def _map_metadata_to_db_fields(data: dict, github_url: str) -> dict:
-    license_info = data.get("license") or {}
-    owner_info   = data.get("owner") or {}
-
-    return {
-        "githubUrl":      github_url,
-        "repoName":       data.get("name"),
-        "repoOwner":      owner_info.get("login"),
-        "defaultBranch":  data.get("default_branch"),
-        "isPrivate":      data.get("private", False),
-        "sizeKb":         data.get("size"),
-        "description":    data.get("description"),
-        "language":       data.get("language"),
-        "topics":         data.get("topics", []),
-        "stars":          data.get("stargazers_count"),
-        "license":        license_info.get("spdx_id"),
-        "isArchived":     data.get("archived", False),
-        "repoCreatedAt":  _parse_github_date(data.get("created_at")),
-        "repoUpdatedAt":  _parse_github_date(data.get("updated_at")),
-    }
-
+# Database operations
 
 async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repository:
+    """
+    Persist a new Repository record to the database.
+
+    Expects metadata in the shape returned by _map_metadata_to_db_fields().
+    Status is always set to PENDING on creation — the worker updates it
+    as the indexing pipeline progresses.
+
+    Raises ValueError if a required metadata field is missing.
+    Raises Exception (wrapping SQLAlchemyError) on database failure,
+    rolling back the transaction before re-raising.
+    """
     try:
         new_repo = Repository(
             id=str(uuid.uuid4()),
@@ -269,15 +360,9 @@ async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repositor
             repoOwner=metadata.get("repoOwner"),
             defaultBranch=metadata.get("defaultBranch"),
             isPrivate=metadata.get("isPrivate", False),
-            sizeKb=metadata.get("sizeKb"),
             description=metadata.get("description"),
             language=metadata.get("language"),
             topics=metadata.get("topics", []),
-            stars=metadata.get("stars"),
-            license=metadata.get("license"),
-            isArchived=metadata.get("isArchived", False),
-            repoCreatedAt=metadata.get("repoCreatedAt"),
-            repoUpdatedAt=metadata.get("repoUpdatedAt"),
             status=RepoStatus.PENDING,
         )
 
@@ -287,15 +372,24 @@ async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repositor
         return new_repo
 
     except KeyError as e:
-        raise ValueError(f"Missing required field in metadata: {str(e)}")
+        raise ValueError(f"Missing required field in metadata: {e}")
     except SQLAlchemyError as e:
         await db.rollback()
-        raise Exception(f"Database error while saving repo: {str(e)}")
+        raise Exception(f"Database error while saving repo: {e}")
 
 
+async def check_existing_repo(
+    user_id: str,
+    github_url: str,
+    db: AsyncSession
+) -> Repository | None:
+    """
+    Return the existing Repository record if this user has already submitted
+    this URL, otherwise return None.
 
-
-async def check_existing_repo(user_id: str, github_url: str, db: AsyncSession):
+    Used by the router to short-circuit duplicate submissions before
+    any GitHub API calls are made.
+    """
     query = select(Repository).where(
         and_(
             Repository.userId == user_id,
