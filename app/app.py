@@ -2,7 +2,7 @@ import time
 import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from app.models.users import create_db_and_tables, Base
+from app.models.repo_models import create_db_and_tables, Base
 from contextlib import asynccontextmanager
 from app.router.urlRoute import router
 from app.router.webhookRouter import router_webhook

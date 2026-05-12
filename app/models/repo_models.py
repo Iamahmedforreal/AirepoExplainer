@@ -18,6 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.sql import func
 from sqlalchemy.orm import DeclarativeBase, relationship
+from app.models.db import engine
 
 
 class Base(DeclarativeBase):
@@ -273,3 +274,6 @@ class Message(Base):
     __table_args__ = (
         Index("ix_messages_conversationId", "conversationId"),
     )
+async def create_db_and_tables():
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
