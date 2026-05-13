@@ -1,66 +1,91 @@
 """
-task.py — ARQ background tasks for the repository indexing pipeline.
+task.py — ARQ background tasks.
 
-Phase 1 (current): fetch_repo_content
-    - Fetch the full recursive file tree from the GitHub Trees API
-    - Filter out non-source files (clean_tree_data)
-    - Store the cleaned tree in WorkerTask.result
-    - Mark repo INDEXED
+index_repo pipeline:
+    Priority 1 (sequential):
+        - Fetch repo metadata from GitHub API
+        - Duplicate check (reject if user already submitted this URL)
+        - Save Repository row to DB (status = INDEXING)
 
-Content fetching and chunking are handled in later phases.
+    Priority 2 (runs after save, parallel-friendly across workers):
+        - Fetch full recursive file tree from GitHub Trees API
+        - Clean / filter the tree
+
+Each task is fully self-contained so multiple ARQ workers can run
+index_repo for different repos in parallel without sharing any state.
 """
 
 import logging
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import update
+
+from sqlalchemy import select, and_, update
+
 from app.models.db import async_session
 from app.models.repo_models import (
-    RepoStatus,
     Repository,
+    RepoStatus,
     TaskStatus,
     TaskType,
     WorkerTask,
 )
-from app.services.urlService import clean_tree_data, fetch_repo_tree
+from app.services.urlService import (
+    extract_repo_info,
+    check_existing_repo,
+    save_repo,
+    fetch_repo_tree,
+    clean_tree_data,
+)
 
 logger = logging.getLogger(__name__)
 
 
-async def fetch_repo_content(
-    ctx,
-    *,
-    repo_id: str,
-    owner: str,
-    repo_name: str,
-    branch: str,
-) -> dict:
-    """Fetch and clean the repository file tree.
+async def index_repo(ctx, *, user_id: str, github_url: str) -> dict:
+    """Full indexing pipeline for one repository.
 
-    Workflow:
-        1. Create WorkerTask audit row
-        2. Mark Repository.status → INDEXING
-        3. Fetch full recursive tree via GitHub Trees API
-        4. Filter out excluded dirs / extensions / dotfiles / empty files
-        5. Mark Repository.status → INDEXED
-        6. Update WorkerTask.status → SUCCESS, store cleaned tree in result
+    Priority 1 — metadata + save (must complete before anything else):
+        1. Fetch repo metadata from GitHub
+        2. Reject duplicate submissions
+        3. Save Repository row (status = INDEXING)
+
+    Priority 2 — tree (runs after repo is saved):
+        4. Fetch full recursive file tree
+        5. Clean / filter tree
 
     Args:
-        ctx:       ARQ context (reserved for future shared resources).
-        repo_id:   Primary key of the Repository row.
-        owner:     GitHub owner login.
-        repo_name: Repository name (no .git suffix).
-        branch:    Default branch (e.g. "main", "master").
+        ctx:        ARQ context (reserved for future shared resources).
+        user_id:    Clerk user ID from the JWT.
+        github_url: Validated GitHub repository URL.
 
     Returns:
-        { "total_items": int, "files_after_filter": int, "tree": [...] }
+        { "repo_id", "total_items", "files_after_filter" }
     """
     task_id = str(uuid.uuid4())
     started_at = datetime.now(timezone.utc)
 
     async with async_session() as db:
 
-        # ── 1. Create WorkerTask audit row ────────────────────────────────────
+        # ── PRIORITY 1: metadata + save ───────────────────────────────────────
+
+        logger.info("[%s] index_repo started — user=%s url=%s", task_id, user_id, github_url)
+
+        # 1. Fetch metadata from GitHub
+        metadata, owner, repo_name = await extract_repo_info(github_url)
+
+        # 2. Duplicate check — skip silently if already submitted
+        existing = await check_existing_repo(user_id, metadata["githubUrl"], db)
+        if existing:
+            logger.info(
+                "[%s] Duplicate submission — repo %s already exists for user %s",
+                task_id, github_url, user_id,
+            )
+            return {"status": "duplicate", "repo_id": existing.id}
+
+        # 3. Save repo row (status = INDEXING from the start)
+        repo = await save_repo(user_id, metadata, db)
+        repo_id = repo.id
+
+        # Attach a WorkerTask audit row now that we have a repo_id
         task_row = WorkerTask(
             id=task_id,
             repoId=repo_id,
@@ -70,74 +95,56 @@ async def fetch_repo_content(
             attempts=1,
         )
         db.add(task_row)
-
-        # ── 2. Mark repository as INDEXING ────────────────────────────────────
-        await db.execute(
-            update(Repository)
-            .where(Repository.id == repo_id)
-            .values(status=RepoStatus.INDEXING)
-        )
         await db.commit()
 
         logger.info(
-            "[%s] fetch_repo_content started — repo=%s (%s/%s @ %s)",
-            task_id, repo_id, owner, repo_name, branch,
+            "[%s] Repo saved — id=%s (%s/%s @ %s)",
+            task_id, repo_id, owner, repo_name, metadata.get("defaultBranch"),
         )
 
+        # ── PRIORITY 2: tree fetch + clean ────────────────────────────────────
+        # Runs after the repo row exists. Multiple workers handle different
+        # repos here in parallel — no shared state between tasks.
+
         try:
-            # ── 3. Fetch full recursive file tree ─────────────────────────────
+            # 4. Fetch full recursive tree
+            branch = metadata.get("defaultBranch", "main")
             tree_data = await fetch_repo_tree(owner, repo_name, branch)
             total_items = tree_data["total_count"]
-            logger.info(
-                "[%s] Tree fetched — %d total items (truncated=%s)",
-                task_id, total_items, tree_data.get("truncated"),
-            )
+            logger.info("[%s] Tree fetched — %d items", task_id, total_items)
 
-            # ── 4. Filter to source files only ────────────────────────────────
+            # 5. Filter to source files only
             cleaned_tree = await clean_tree_data(tree_data["tree"])
             files_after_filter = len(cleaned_tree)
-            logger.info(
-                "[%s] Tree cleaned — %d files remaining after filtering",
-                task_id, files_after_filter,
-            )
+            logger.info("[%s] Tree cleaned — %d files kept", task_id, files_after_filter)
 
-            # ── 5. Mark repository as INDEXED ─────────────────────────────────
+            # Mark repo indexed + record result
+            completed_at = datetime.now(timezone.utc)
+            result = {
+                "total_items":        total_items,
+                "files_after_filter": files_after_filter,
+                "tree":               cleaned_tree,
+            }
             await db.execute(
                 update(Repository)
                 .where(Repository.id == repo_id)
                 .values(status=RepoStatus.INDEXED)
             )
-
-            # ── 6. Record success + store cleaned tree ────────────────────────
-            completed_at = datetime.now(timezone.utc)
-            result_summary = {
-                "total_items":       total_items,
-                "files_after_filter": files_after_filter,
-                "tree":              cleaned_tree,
-            }
             await db.execute(
                 update(WorkerTask)
                 .where(WorkerTask.id == task_id)
-                .values(
-                    status=TaskStatus.SUCCESS,
-                    completedAt=completed_at,
-                    result=result_summary,
-                )
+                .values(status=TaskStatus.SUCCESS, completedAt=completed_at, result=result)
             )
             await db.commit()
 
             logger.info(
-                "[%s] fetch_repo_content SUCCESS — %d/%d files kept",
+                "[%s] index_repo SUCCESS — %d/%d files kept",
                 task_id, files_after_filter, total_items,
             )
-            return result_summary
+            return {"repo_id": repo_id, "total_items": total_items, "files_after_filter": files_after_filter}
 
         except Exception as exc:
-            # ── Failure path ──────────────────────────────────────────────────
-            logger.error(
-                "[%s] fetch_repo_content FAILED — repo=%s: %s",
-                task_id, repo_id, exc, exc_info=True,
-            )
+            logger.error("[%s] index_repo FAILED — %s", task_id, exc, exc_info=True)
             completed_at = datetime.now(timezone.utc)
             await db.execute(
                 update(Repository)
@@ -155,4 +162,4 @@ async def fetch_repo_content(
                 )
             )
             await db.commit()
-            raise  # re-raise so ARQ marks the job as failed in Redis
+            raise

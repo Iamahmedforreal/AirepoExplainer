@@ -29,20 +29,11 @@ class Base(DeclarativeBase):
 # Enumerations
 
 class RepoStatus(enum.Enum):
-    """
-    Lifecycle of a repository through the indexing pipeline.
-
-    PENDING  - submitted, worker not yet started
-    INDEXING - worker is actively processing
-    INDEXED  - embeddings stored, repo is queryable
-    FAILED   - pipeline error, see worker_tasks.errorMessage
-    OUTDATED - repo was re-pushed since last index, needs re-indexing
-    """
-    PENDING  = "PENDING"
-    INDEXING = "INDEXING"
-    INDEXED  = "INDEXED"
-    FAILED   = "FAILED"
-    OUTDATED = "OUTDATED"
+    PENDING  = "pending"
+    INDEXING = "indexing"
+    INDEXED  = "indexed"
+    FAILED   = "failed"
+    OUTDATED = "outdated"
 
 
 class TaskType(enum.Enum):

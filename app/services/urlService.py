@@ -15,12 +15,10 @@ import os
 import uuid
 from datetime import datetime
 from urllib.parse import urlparse
-
 import httpx
 from sqlalchemy import and_, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-
 from app.config.app_config import settings
 from app.models.repo_models import RepoStatus, Repository
 
