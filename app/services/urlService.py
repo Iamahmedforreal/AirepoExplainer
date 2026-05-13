@@ -11,9 +11,8 @@ All GitHub API calls share a single httpx.AsyncClient instance created
 on first use and reused for the lifetime of the process.
 """
 
-import os
+
 import uuid
-from datetime import datetime
 from urllib.parse import urlparse
 import httpx
 from sqlalchemy import and_, select
@@ -56,62 +55,6 @@ def _get_client() -> httpx.AsyncClient:
 
 
 
-# Tree filtering constants
-
-
-# File extensions that carry no value for code understanding or embedding.
-# Extend these sets as new irrelevant file types are encountered in the wild.
-EXCLUDED_EXTENSIONS = {
-    # docs
-    ".md", ".mdx", ".rst", ".txt", ".pdf", ".doc", ".docx",
-    # config / env
-    ".env", ".env.example", ".env.local", ".env.sample",
-    # images
-    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp",
-    # fonts
-    ".ttf", ".woff", ".woff2", ".eot",
-    # video / audio
-    ".mp4", ".mp3", ".wav", ".avi",
-    # archives
-    ".zip", ".tar", ".gz", ".rar",
-    # compiled / binary — not human-readable, useless for RAG
-    ".pyc", ".pyo", ".exe", ".dll", ".so", ".class",
-    # lock files — auto-generated, never contains business logic
-    ".lock",
-}
-
-# Exact filenames that should be dropped regardless of extension.
-EXCLUDED_FILENAMES = {
-    # project docs
-    "README.md", "README", "CHANGELOG.md", "CHANGELOG",
-    "CONTRIBUTING.md", "LICENSE", "LICENSE.md", "NOTICE",
-    # env templates
-    ".env.example", ".env.sample", ".env.template",
-    # editor / linter config
-    ".editorconfig", ".prettierrc", ".eslintrc",
-    # version control config
-    ".gitignore", ".gitattributes", ".gitmodules",
-    # build orchestration
-    "Makefile",
-}
-
-# Directory names that indicate generated, vendored, or non-source content.
-# Checked against every path segment, not just the top-level directory.
-EXCLUDED_DIRECTORIES = {
-    # dependency trees
-    "node_modules", "venv", ".venv", "env", "__pycache__",
-    "site-packages", ".tox", "dist", "build", "eggs",
-    # version control internals
-    ".git", ".svn", ".hg",
-    # IDE state
-    ".idea", ".vscode", ".vs",
-    # test / type-check caches
-    "coverage", ".coverage", ".pytest_cache", ".mypy_cache",
-    # frontend build output
-    ".next", ".nuxt", "out", ".cache",
-}
-
-
 
 # GitHub API calls
 
@@ -149,140 +92,14 @@ async def _fetch_repo_from_github(owner: str, repo_name: str) -> dict:
         raise RuntimeError("Could not connect to GitHub")
 
 
-async def fetch_repo_tree(owner: str, repo_name: str, branch: str) -> dict:
-    """
-    Fetch the full recursive file tree for a repository branch.
-
-    Uses the Git Trees API with recursive=1 to retrieve all paths in a
-    single request rather than traversing directories individually.
-
-    Returns a normalised dict:
-        sha          - tree SHA at time of fetch
-        total_count  - total items before any filtering
-        tree         - list of {path, type, size, sha} dicts
-        truncated    - True if GitHub capped the response (repo > ~100k files)
-
-    Raises ValueError for 404 (repo/branch not found) and 409 (empty repo).
-    Raises RuntimeError for rate limit errors and network failures.
-    """
-    client = _get_client()
-    endpoint = f"/repos/{owner}/{repo_name}/git/trees/{branch}"
-
-    try:
-        response = await client.get(endpoint, params={"recursive": "1"})
-
-        if response.status_code == 404:
-            raise ValueError(
-                f"Repository or branch not found: {owner}/{repo_name} @ {branch}"
-            )
-
-        if response.status_code == 409:
-            raise ValueError(f"Repository is empty: {owner}/{repo_name}")
-
-        if response.status_code in (403, 429):
-            raise RuntimeError(
-                f"GitHub rate limit reached. "
-                f"Resets at: {response.headers.get('X-RateLimit-Reset', 'unknown')}"
-            )
-
-        response.raise_for_status()
-        data = response.json()
-        tree_items = data.get("tree", [])
-
-        return {
-            "sha":         data.get("sha"),
-            "total_count": len(tree_items),
-            "truncated":   data.get("truncated", False),
-            "tree": [
-                {
-                    "path": item.get("path"),
-                    "type": item.get("type"),
-                    "size": item.get("size"),
-                    "sha":  item.get("sha"),
-                }
-                for item in tree_items
-            ],
-        }
-
-    except httpx.TimeoutException:
-        raise RuntimeError(
-            f"GitHub API timed out fetching tree: {owner}/{repo_name} @ {branch}"
-        )
-    except httpx.HTTPStatusError as e:
-        raise RuntimeError(f"GitHub API error {e.response.status_code}: {e}")
-
-
-
-# Tree filtering
-
-
-async def clean_tree_data(tree: list[dict]) -> list[dict]:
-    """
-    Remove non-source files from a raw GitHub tree response.
-
-    Filters out:
-        - directories (type != blob)
-        - files inside excluded directories (e.g. node_modules, venv)
-        - files with excluded names (e.g. README.md, Makefile)
-        - files with excluded extensions (e.g. .png, .lock)
-        - hidden files (dotfiles like .DS_Store, .eslintrc)
-        - empty files (size == 0, nothing to embed)
-    """
-    cleaned = []
-
-    for item in tree:
-        # directories have no content 
-        if item["type"] != "blob":
-            continue
-
-        path: str = item.get("path", "")
-        parts = path.split("/")
-        filename = parts[-1]
-        parent_dirs = parts[:-1]
-
-        # drop anything nested inside an excluded directory
-        if any(d in EXCLUDED_DIRECTORIES for d in parent_dirs):
-            continue
-
-        # drop files whose name is on the exclusion list
-        if filename in EXCLUDED_FILENAMES:
-            continue
-
-        # drop files whose extension is on the exclusion list
-        _, ext = os.path.splitext(filename)
-        if ext.lower() in EXCLUDED_EXTENSIONS:
-            continue
-
-        # drop dotfiles — editor config, tool config, OS metadata
-        if filename.startswith("."):
-            continue
-
-        # drop empty files — nothing to embed
-        if item.get("size", 0) == 0:
-            continue
-
-        cleaned.append(item)
-
-    return cleaned
-
-
 # Metadata extraction and normalisation
-
-def _parse_github_date(date_str: str | None) -> datetime | None:
-    """
-    Convert a GitHub ISO 8601 timestamp string to a timezone-aware datetime.
-    Returns None if the input is missing or empty.
-    """
-    if not date_str:
-        return None
-    return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
 
 
 def _map_metadata_to_db_fields(data: dict, github_url: str) -> dict:
     """
     Normalise a raw GitHub API response into the fields expected by Repository.
     """
-    license_info = data.get("license") or {}
+  
     owner_info   = data.get("owner") or {}
 
     return {
@@ -293,7 +110,7 @@ def _map_metadata_to_db_fields(data: dict, github_url: str) -> dict:
         "isPrivate":     data.get("private", False),
         "description":   data.get("description"),
         "language":      data.get("language"),
-        "topics":        data.get("topics", []),
+        "topics":        data.get("topics", [])
     }
 
 
