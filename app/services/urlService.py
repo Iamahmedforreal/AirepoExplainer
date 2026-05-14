@@ -12,6 +12,8 @@ on first use and reused for the lifetime of the process.
 """
 
 
+import os
+import shutil
 import uuid
 from urllib.parse import urlparse
 import httpx
@@ -20,9 +22,39 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config.app_config import settings
 from app.models.repo_models import RepoStatus, Repository
+from pathlib import Path
 
 
+#ignoring emtpty directory and files and unnecessary things 
 
+
+# Folders to delete entirely (regardless of content)
+_SKIP_DIRS = {
+    ".git", ".vscode", ".idea", ".github",
+    "node_modules", "__pycache__", ".pytest_cache",
+    ".mypy_cache", ".tox", "dist", "build", ".eggs",
+    ".gradle", ".mvn", "target",
+}
+
+# File extensions that are binary / non-source / noise
+_SKIP_EXTENSIONS = {
+    # images
+    ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg", ".webp",
+    ".tiff", ".psd",
+    # compiled / binary
+    ".exe", ".dll", ".so", ".dylib", ".obj", ".o", ".a",
+    ".class", ".pyc", ".pyo", ".pyd",
+    # archives
+    ".zip", ".tar", ".gz", ".bz2", ".xz", ".rar", ".7z", ".jar", ".war",
+    # media
+    ".mp3", ".mp4", ".avi", ".mov", ".wav", ".flac", ".ogg",
+    # data / model blobs
+    ".bin", ".dat", ".pkl", ".pt", ".pth", ".h5", ".onnx", ".pb",
+    # documents / fonts
+    ".pdf", ".docx", ".xlsx", ".pptx", ".ttf", ".otf", ".woff", ".woff2",
+    # lock files (not useful for AST chunking)
+    ".lock",
+}
 # HTTP client
 
 
@@ -74,7 +106,6 @@ async def _fetch_repo_from_github(owner: str, repo_name: str) -> dict:
             f"/repos/{owner}/{repo_name}",
             timeout=10.0
         )
-
         if response.status_code == 404:
             raise ValueError(f"Repository not found: {owner}/{repo_name}")
 
@@ -193,10 +224,7 @@ async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repositor
         raise Exception(f"Database error while saving repo: {e}")
 
 
-async def check_existing_repo(
-    user_id: str,
-    github_url: str,
-    db: AsyncSession
+async def check_existing_repo( user_id: str,github_url: str,db: AsyncSession
 ) -> Repository | None:
     """
     Return the existing Repository record if this user has already submitted
@@ -213,3 +241,53 @@ async def check_existing_repo(
     )
     result = await db.execute(query)
     return result.scalars().first()
+
+def clean_repo(repo_path: str
+) -> str:
+    """
+    Clean the repository file tree by removing unwanted directories and files.
+
+    This function takes a repository path, walks through its file tree, and removes
+    any directories or files that match the criteria defined in _SKIP_DIRS and _SKIP_EXTENSIONS.
+
+    Args:
+        repo_path (str): The file system path to the repository."""
+    
+    root = Path(repo_path)
+    
+    # Walk through the repository file tree  and  remove unwanted directories 
+    for dirpath , dirnames , _ in os.walk(root , topdown=True):
+        for dirname in list(dirnames):
+            if dirname in _SKIP_DIRS:
+                full_path = Path(dirpath) / dirname
+                shutil.rmtree(full_path , ignore_errors=True)
+                dirnames.remove(dirname)  
+ # ── 2. Remove binary / empty files
+    for file_path in root.rglob("*"):
+        if not file_path.is_file():
+            continue
+        # Remove files with unwanted extensions
+        if file_path.suffix in _SKIP_EXTENSIONS:
+            file_path.unlink(missing_ok=True)
+            continue
+        # Remove empty files
+        if file_path.stat().st_size == 0:
+            file_path.unlink(missing_ok=True)
+            continue
+# After removing files, walk through the directory tree again to remove any now-empty directories
+    for dirpath, dirnames, filenames in os.walk(root, topdown=False):
+        if dirpath == str(root):
+            continue
+        if not os.listdir(dirpath):
+            os.rmdir(dirpath)
+            
+            
+
+   
+
+
+    
+            
+
+                
+        

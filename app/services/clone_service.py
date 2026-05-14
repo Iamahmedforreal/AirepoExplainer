@@ -2,6 +2,7 @@ import os
 import shutil
 from git import Repo
 from app.config.app_config import settings
+from app.services.urlService import clean_repo
 
 
 
@@ -18,5 +19,7 @@ def clone_repo(owner: str, repo_name: str, github_url: str) -> str:
     os.makedirs(dest, exist_ok=True)
     Repo.clone_from(github_url, dest, depth=1)
 
-    
+    # Strip binary files, empty files,
+    clean_repo(dest)
+
     return dest
