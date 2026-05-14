@@ -43,10 +43,9 @@ class TaskType(enum.Enum):
     Individual types are reserved for partial re-runs (e.g. re-embed only).
     """
     FULL_PIPELINE = "full_pipeline"
-    FETCH_TREE    = "fetch_tree"
-    FETCH_CONTENT = "fetch_content"
-    CHUNK         = "chunk"
-    EMBED         = "embed"
+    CLONE="clone"
+    CHUNK="chunk"
+    EMBED="embed"
 
 
 class TaskStatus(enum.Enum):

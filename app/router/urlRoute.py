@@ -25,7 +25,7 @@ async def submit_repo(request: Request, payload: TrustedGitHubRepoLink):
     return {"status": "queued", "message": "Repository queued for indexing"}
 
 
-
+"""endpoint for frontend to poll for task progress. Returns the current phase of the background task by its ID."""
 @router.get("/tasks/{task_id}")
 async def get_task_phase(task_id: str, request: Request, db: AsyncSession = Depends(get_db)):
     """return the current phase of a background task by its ID. This is used by the frontend to poll for task progress.
@@ -48,8 +48,8 @@ async def get_task_phase(task_id: str, request: Request, db: AsyncSession = Depe
         # running tasks: map by taskType to a human-friendly phase
         tt = getattr(task, "taskType", None)
         ttval = getattr(tt, "value", None)
-        if ttval == "fetch_tree":
-            phase = "fetching"
+        if ttval == "clone":
+            phase = "cloning"
         else:
             phase = "indexing"
     elif task.status == TaskStatus.RETRYING:
