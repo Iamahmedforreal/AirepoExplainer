@@ -61,15 +61,19 @@ async def index_repo(ctx, *, user_id: str, github_url: str) -> dict:
         await db.commit()
 
         
-
         # ── PRIORITY 2: shallow clone ─────────────────────────────────────────
 
         try:
-            clone_path = clone_repo(owner, repo_name, github_url)
+            clone_result = clone_repo(owner, repo_name, github_url)
+            clone_path = clone_result["clone_path"]
+            file_count = len(clone_result["files"])
 
             # Mark success
             completed_at = datetime.now(timezone.utc)
-            result = {"clone_path": clone_path}
+            result = {
+                "clone_path": clone_path,
+                "folders": len(clone_result["folders"])
+            }
             await db.execute(
                 update(Repository)
                 .where(Repository.id == repo_id)
@@ -83,7 +87,7 @@ async def index_repo(ctx, *, user_id: str, github_url: str) -> dict:
             await db.commit()
 
             
-            return {"repo_id": repo_id, "clone_path": clone_path}
+            return {"repo_id": repo_id, "clone_path": clone_path, "files_accepted": file_count}
 
         except Exception as exc:
            

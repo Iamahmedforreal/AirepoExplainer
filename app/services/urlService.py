@@ -3,17 +3,14 @@ Service layer for GitHub repository operations.
 
 Responsibilities:
     - GitHub API communication (repo metadata, file tree)
-    - Tree filtering (remove non-source files)
+    - Repository file-tree filtering (non-destructive)
     - Metadata normalization (GitHub response -> DB fields)
     - Repository persistence (save, duplicate check)
 
 All GitHub API calls share a single httpx.AsyncClient instance created
 on first use and reused for the lifetime of the process.
 """
-
-
-import os
-import shutil
+import re
 import uuid
 from urllib.parse import urlparse
 import httpx
@@ -25,35 +22,111 @@ from app.models.repo_models import RepoStatus, Repository
 from pathlib import Path
 
 
-#ignoring emtpty directory and files and unnecessary things 
 
-
-# Folders to delete entirely (regardless of content)
-_SKIP_DIRS = {
-    ".git", ".vscode", ".idea", ".github",
-    "node_modules", "__pycache__", ".pytest_cache",
-    ".mypy_cache", ".tox", "dist", "build", ".eggs",
-    ".gradle", ".mvn", "target",
+# Directories skipped entirely (never traversed)
+EXCLUDED_DIRECTORIES = {
+    # version control / editor
+    ".git", ".svn", ".hg",
+    ".vscode", ".idea", ".eclipse", ".settings",
+    ".github", ".gitlab", ".circleci", ".husky",
+    # dependency caches
+    "node_modules", "bower_components", "jspm_packages",
+    ".yarn", ".pnp",
+    # Python caches
+    "__pycache__", ".pytest_cache", ".mypy_cache",
+    ".tox", ".nox", ".eggs", ".ruff_cache",
+    "*.egg-info",
+    # build output
+    "dist", "build", "out", "_build",
+    "target", "cmake-build-debug", "cmake-build-release",
+    # JVM
+    ".gradle", ".mvn",
+    # virtual environments
+    ".venv", "venv", "env", ".env",
+    # coverage / profiling
+    "coverage", "htmlcov", ".nyc_output",
+    # misc
+    "vendor", ".terraform", ".serverless",
+    ".next", ".nuxt", ".svelte-kit",
+    ".parcel-cache", ".turbo", ".vercel",
+    "storybook-static",
 }
 
-# File extensions that are binary / non-source / noise
-_SKIP_EXTENSIONS = {
-    # images
+# Migration directory names — entire folder skipped
+MIGRATION_DIRECTORY_PATTERNS = {
+    "migrations", "migrate", "alembic",
+    "db_migrations", "schema_migrations",
+    "prisma", "drizzle",
+}
+
+# Migration filenames matched by regex (e.g. 0001_initial.py, 20240312_add_col.sql)
+MIGRATION_FILENAME_PATTERNS = [
+    r"^\d{4,14}[_\-]",      # timestamp or sequence prefix
+    r"^V\d+__",              # Flyway style  V1__create.sql
+    r"^R__",                 # Flyway repeatable
+]
+
+# Exact filenames to skip (config / noise / CI)
+EXCLUDED_FILENAMES = {
+    # lock / dependency manifests (not useful for code understanding)
+    "package-lock.json", "yarn.lock", "pnpm-lock.yaml",
+    "Pipfile.lock", "poetry.lock", "uv.lock",
+    "composer.lock", "Gemfile.lock", "Cargo.lock",
+    "go.sum", "flake.lock",
+    # build / config noise
+    ".DS_Store", "Thumbs.db", "desktop.ini",
+    ".editorconfig", ".prettierrc", ".prettierignore",
+    ".eslintcache", ".stylelintrc",
+    ".browserslistrc", ".babelrc",
+    "tsconfig.tsbuildinfo",
+    # CI descriptors (not source code)
+    "Dockerfile", "docker-compose.yml", "docker-compose.yaml",
+    "Procfile", "Makefile", "Justfile",
+    "Vagrantfile", "Jenkinsfile",
+    ".dockerignore", ".gitignore", ".gitattributes",
+    ".npmignore", ".slugignore",
+}
+
+# File extensions to skip (binary / non-source / noise)
+EXCLUDED_EXTENSIONS = {
+    # ── images ──
     ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".ico", ".svg", ".webp",
-    ".tiff", ".psd",
-    # compiled / binary
-    ".exe", ".dll", ".so", ".dylib", ".obj", ".o", ".a",
+    ".tiff", ".tif", ".psd", ".ai", ".eps", ".raw", ".cr2", ".nef",
+    ".heic", ".heif", ".avif", ".jxl",
+    # ── compiled / object ──
+    ".exe", ".dll", ".so", ".dylib", ".obj", ".o", ".a", ".lib",
     ".class", ".pyc", ".pyo", ".pyd",
-    # archives
-    ".zip", ".tar", ".gz", ".bz2", ".xz", ".rar", ".7z", ".jar", ".war",
-    # media
-    ".mp3", ".mp4", ".avi", ".mov", ".wav", ".flac", ".ogg",
-    # data / model blobs
-    ".bin", ".dat", ".pkl", ".pt", ".pth", ".h5", ".onnx", ".pb",
-    # documents / fonts
-    ".pdf", ".docx", ".xlsx", ".pptx", ".ttf", ".otf", ".woff", ".woff2",
-    # lock files (not useful for AST chunking)
-    ".lock",
+    ".wasm", ".bc",
+    # ── archives ──
+    ".zip", ".tar", ".gz", ".bz2", ".xz", ".rar", ".7z",
+    ".jar", ".war", ".ear",
+    ".deb", ".rpm", ".apk", ".dmg", ".iso", ".img",
+    # ── media ──
+    ".mp3", ".mp4", ".avi", ".mov", ".mkv", ".wmv", ".flv",
+    ".wav", ".flac", ".ogg", ".aac", ".m4a", ".wma",
+    ".webm", ".3gp",
+    # ── ML / data blobs ──
+    ".bin", ".dat", ".pkl", ".pickle",
+    ".pt", ".pth", ".ckpt", ".safetensors",
+    ".h5", ".hdf5", ".onnx", ".pb", ".tflite",
+    ".npy", ".npz", ".parquet", ".feather", ".arrow",
+    # ── documents ──
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx",
+    ".ppt", ".pptx", ".odt", ".ods", ".odp",
+    ".rtf", ".epub",
+    # ── fonts ──
+    ".ttf", ".otf", ".woff", ".woff2", ".eot",
+    # ── lock files ──
+    ".lock", ".lck",
+    # ── source maps (not useful for understanding) ──
+    ".map",
+    # ── database files ──
+    ".sqlite", ".sqlite3", ".db", ".mdb",
+    # ── certificates / keys (sensitive, not code) ──
+    ".pem", ".crt", ".key", ".p12", ".pfx", ".jks",
+    # ── misc binary ──
+    ".swp", ".swo", ".bak", ".tmp", ".log",
+    ".min.js", ".min.css",
 }
 # HTTP client
 
@@ -242,52 +315,97 @@ async def check_existing_repo( user_id: str,github_url: str,db: AsyncSession
     result = await db.execute(query)
     return result.scalars().first()
 
-def clean_repo(repo_path: str
-) -> str:
+def collect_clean_repo(repo_path: str) -> dict:
     """
-    Clean the repository file tree by removing unwanted directories and files.
+    Walk a locally cloned repo and return both the clean folder
+    structure and the accepted source files.
+    Returns:
+        {
+            "folders": ["src", "src/auth", "src/models", ...],
+            "files":   [
+                {"path": "src/auth/login.py", "abs_path": "..."},
+                ...
+            ]
+        }
+    """
+    root    = Path(repo_path)
+    folders = set()
+    files   = []
 
-    This function takes a repository path, walks through its file tree, and removes
-    any directories or files that match the criteria defined in _SKIP_DIRS and _SKIP_EXTENSIONS.
+    for item in root.rglob("*"):
+        rel        = item.relative_to(root)
+        parts      = rel.parts
+        parent_dirs = parts[:-1]
 
-    Args:
-        repo_path (str): The file system path to the repository."""
-    
-    root = Path(repo_path)
-    
-    # Walk through the repository file tree  and  remove unwanted directories 
-    for dirpath , dirnames , _ in os.walk(root , topdown=True):
-        for dirname in list(dirnames):
-            if dirname in _SKIP_DIRS:
-                full_path = Path(dirpath) / dirname
-                shutil.rmtree(full_path , ignore_errors=True)
-                dirnames.remove(dirname)  
- # ── 2. Remove binary / empty files
-    for file_path in root.rglob("*"):
-        if not file_path.is_file():
+        # skip anything inside an excluded directory
+        if any(d in EXCLUDED_DIRECTORIES for d in parts):
             continue
-        # Remove files with unwanted extensions
-        if file_path.suffix in _SKIP_EXTENSIONS:
-            file_path.unlink(missing_ok=True)
+
+        # skip migration directories
+        if any(d in MIGRATION_DIRECTORY_PATTERNS for d in parts):
             continue
-        # Remove empty files
-        if file_path.stat().st_size == 0:
-            file_path.unlink(missing_ok=True)
+
+        # collect folders
+        if item.is_dir():
+            folders.add(str(rel).replace("\\", "/"))
             continue
-# After removing files, walk through the directory tree again to remove any now-empty directories
-    for dirpath, dirnames, filenames in os.walk(root, topdown=False):
-        if dirpath == str(root):
+
+        # from here only files
+        filename = parts[-1]
+
+        # skip migration files by pattern
+        if any(re.match(p, filename) for p in MIGRATION_FILENAME_PATTERNS):
             continue
-        if not os.listdir(dirpath):
-            os.rmdir(dirpath)
-            
-            
 
-   
+        # skip excluded filenames
+        if filename in EXCLUDED_FILENAMES:
+            continue
+
+        # skip excluded extensions
+        if item.suffix.lower() in EXCLUDED_EXTENSIONS:
+            continue
+
+        # skip dotfiles
+        if filename.startswith("."):
+            continue
+
+        # skip empty files
+        if item.stat().st_size == 0:
+            continue
+
+        # collect the file
+        files.append({
+            "path":     str(rel).replace("\\", "/"),
+            "abs_path": str(item),
+        })
+
+        # also register all its parent folders
+        for i in range(1, len(parts)):
+            folders.add("/".join(parts[:i]))
+
+    return {
+        "folders": sorted(folders),   # sorted so tree renders top-down
+        "files":   files,
+    }
 
 
-    
-            
+def read_file_contents(accepted_files: list[dict]) -> list[dict]:
+    """
+    Read content of each accepted file into memory.
+    Skips files that cannot be decoded as UTF-8.
+    """
+    result = []
 
-                
-        
+    for item in accepted_files:
+        try:
+            content = Path(item["abs_path"]).read_text(encoding="utf-8")
+            if not content.strip():
+                continue
+            result.append({
+                "path":    item["path"],
+                "content": content,
+            })
+        except (UnicodeDecodeError, PermissionError):
+            continue
+
+    return result
