@@ -16,7 +16,7 @@ def detect_language(path: str) -> str | None:
     return EXTENSION_TO_LANGUAGE.get(ext)
 
 """functions to parse code using each files language and tree-sitter grammars. """
-def parser(language: str):
+def parse_code(language: str):
     if language == "python":
         import tree_sitter_python as lang_modula
     elif language == "javascript":
@@ -28,5 +28,8 @@ def parser(language: str):
     parser = Parser(lang)
     return parser
 
-    
-  
+"""Parse source code and return the root AST node."""
+def parse_file(content: str, language: str):
+    parser = parse_code(language)
+    tree= parser.parse(content.encode("utf8"))
+    return tree.root_node
