@@ -30,9 +30,6 @@ async def index_repo(ctx, *, user_id: str, github_url: str) -> dict:
     started_at = datetime.now(timezone.utc)
 
     async with async_session() as db:
-
-        # ── PRIORITY 1: metadata + save ───────────────────────────────────────
-
        
 
         # 1. Fetch metadata from GitHub
@@ -41,7 +38,6 @@ async def index_repo(ctx, *, user_id: str, github_url: str) -> dict:
         # 2. Duplicate check
         existing = await check_existing_repo(user_id, metadata["githubUrl"], db)
         if existing:
-            
             raise HTTPException(status_code=400, detail="Repository already exists")
 
         # 3. Save repo row
@@ -52,7 +48,7 @@ async def index_repo(ctx, *, user_id: str, github_url: str) -> dict:
         task_row = WorkerTask(
             id=task_id,
             repoId=repo_id,
-            taskType=TaskType.FETCH_TREE,
+            taskType=TaskType.CLONE,
             status=TaskStatus.RUNNING,
             startedAt=started_at,
             attempts=1,
