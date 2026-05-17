@@ -19,6 +19,7 @@ from app.services.urlService import (
     save_repo,
 )
 from app.services.clone_service import clone_repo
+from app.services.tree_sitter_parser import extract_languages_from_clean_files
 
 
 
@@ -64,6 +65,8 @@ async def index_repo(ctx, *, user_id: str, github_url: str) -> dict:
             clone_path = clone_result["clone_path"]
             file_count = len(clone_result["files"])
 
+            extracted_languages = extract_languages_from_clean_files(clone_result["files"])
+
             # Mark success
             completed_at = datetime.now(timezone.utc)
             result = {
@@ -83,7 +86,7 @@ async def index_repo(ctx, *, user_id: str, github_url: str) -> dict:
             await db.commit()
 
             
-            return {"repo_id": repo_id, "clone_path": clone_path, "files_accepted": file_count}
+            return {"repo_id": repo_id, "clone_path": clone_path, "files_accepted": file_count , "languages": extracted_languages}
 
         except Exception as exc:
            
