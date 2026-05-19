@@ -1,5 +1,5 @@
 import asyncio
-from app.models.users import create_db_and_tables
+from app.models.repo_models import create_db_and_tables
 
 async def main():
     await create_db_and_tables()

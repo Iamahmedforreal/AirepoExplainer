@@ -42,27 +42,27 @@ async def get_task_phase(task_id: str, request: Request, db: AsyncSession = Depe
     # default mapping
     phase = "pending"
 
-    if task.status == TaskStatus.PENDING:
+    if task.statusId == TaskStatus.PENDING:
         phase = "pending"
-    elif task.status == TaskStatus.RUNNING:
-        # running tasks: map by taskType to a human-friendly phase
+    elif task.statusId == TaskStatus.RUNNING:
+        # running tasks: map by taskType relationship name to a human-friendly phase
         tt = getattr(task, "taskType", None)
-        ttval = getattr(tt, "value", None)
+        ttval = getattr(tt, "name", None) if tt else None
         if ttval == "clone":
             phase = "cloning"
         else:
             phase = "indexing"
-    elif task.status == TaskStatus.RETRYING:
+    elif task.statusId == TaskStatus.RETRYING:
         phase = "retrying"
-    elif task.status == TaskStatus.SUCCESS:
+    elif task.statusId == TaskStatus.SUCCESS:
         # If the repository itself is marked indexed, expose `indexed` otherwise `completed`
         repo_res = await db.execute(select(Repository).where(Repository.id == task.repoId))
         repo = repo_res.scalars().first()
-        if repo and getattr(repo, "status", None) == RepoStatus.INDEXED:
+        if repo and getattr(repo, "statusId", None) == RepoStatus.INDEXED:
             phase = "indexed"
         else:
             phase = "completed"
-    elif task.status == TaskStatus.FAILED:
+    elif task.statusId == TaskStatus.FAILED:
         phase = "failed"
 
     return {

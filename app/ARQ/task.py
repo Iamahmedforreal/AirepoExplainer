@@ -49,8 +49,8 @@ async def index_repo(ctx, *, user_id: str, github_url: str) -> dict:
         task_row = WorkerTask(
             id=task_id,
             repoId=repo_id,
-            taskType=TaskType.CLONE,
-            status=TaskStatus.RUNNING,
+            taskTypeId=TaskType.CLONE,
+            statusId=TaskStatus.RUNNING,
             startedAt=started_at,
             attempts=1,
         )
@@ -76,12 +76,12 @@ async def index_repo(ctx, *, user_id: str, github_url: str) -> dict:
             await db.execute(
                 update(Repository)
                 .where(Repository.id == repo_id)
-                .values(status=RepoStatus.INDEXED)
+                .values(statusId=RepoStatus.INDEXED)
             )
             await db.execute(
                 update(WorkerTask)
                 .where(WorkerTask.id == task_id)
-                .values(status=TaskStatus.SUCCESS, completedAt=completed_at, result=result)
+                .values(statusId=TaskStatus.SUCCESS, completedAt=completed_at, result=result)
             )
             await db.commit()
 
@@ -94,13 +94,13 @@ async def index_repo(ctx, *, user_id: str, github_url: str) -> dict:
             await db.execute(
                 update(Repository)
                 .where(Repository.id == repo_id)
-                .values(status=RepoStatus.FAILED)
+                .values(statusId=RepoStatus.FAILED)
             )
             await db.execute(
                 update(WorkerTask)
                 .where(WorkerTask.id == task_id)
                 .values(
-                    status=TaskStatus.FAILED,
+                    statusId=TaskStatus.FAILED,
                     completedAt=completed_at,
                     errorType=type(exc).__name__,
                     errorMessage=str(exc),
