@@ -71,7 +71,8 @@ async def index_repo(ctx, *, user_id: str, github_url: str) -> dict:
             completed_at = datetime.now(timezone.utc)
             result = {
                 "clone_path": clone_path,
-                "folders": len(clone_result["folders"])
+                "folders": len(clone_result["folders"]),
+                "extracted_languages": extracted_languages
             }
             await db.execute(
                 update(Repository)
