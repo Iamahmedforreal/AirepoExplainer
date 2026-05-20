@@ -72,7 +72,7 @@ async def index_repo(ctx, *, user_id: str, github_url: str) -> dict:
             result = {
                 "clone_path": clone_path,
                 "folders": len(clone_result["folders"]),
-                "extracted_languages": extracted_languages
+                "extracted_languages": extracted_languages,
             }
             await db.execute(
                 update(Repository)
@@ -86,8 +86,12 @@ async def index_repo(ctx, *, user_id: str, github_url: str) -> dict:
             )
             await db.commit()
 
-            
-            return {"repo_id": repo_id, "clone_path": clone_path, "files_accepted": file_count , "languages": extracted_languages}
+            return {
+                "repo_id": repo_id,
+                "clone_path": clone_path,
+                "files_accepted": file_count,
+                "languages": extracted_languages
+            }
 
         except Exception as exc:
            

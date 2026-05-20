@@ -52,7 +52,7 @@ def _parse_single_language(language: str) -> Parser:
         return parser
 
 
-def parse_file(content: str, language: str):
+def parse_files(content: str, language: str):
     """
     Parse source code using the selected language grammar and return the root AST node.
     """
@@ -86,3 +86,30 @@ def get_parser(language: set[str]) -> dict[str, Parser]:
         except ValueError as e:
             pass
     return parser
+
+
+def parse_repo(files: list[dict]):
+   
+    for file in files:
+        path = file.get("path")
+        content = file.get("content")
+        lang = detect_language(path)
+
+        if not lang:
+            continue
+
+        ast = parse_files(content, lang)
+
+        yield {
+            "path": path,
+            "language": lang,
+            "ast": ast
+        }
+
+
+        
+
+       
+    
+
+    

@@ -301,6 +301,8 @@ class Message(Base):
     __table_args__ = (
         Index("ix_messages_conversationId", "conversationId"),
     )
+
+    # Indexes optimize graph traversal queries (finding dependencies and usages)
 async def create_db_and_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
