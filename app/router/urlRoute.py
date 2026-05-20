@@ -50,6 +50,8 @@ async def get_task_phase(task_id: str, request: Request, db: AsyncSession = Depe
         ttval = getattr(tt, "name", None) if tt else None
         if ttval == "clone":
             phase = "cloning"
+        elif ttval == "parse":
+            phase = "parsing"
         else:
             phase = "indexing"
     elif task.statusId == TaskStatus.RETRYING:
