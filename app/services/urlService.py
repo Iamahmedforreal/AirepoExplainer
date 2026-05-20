@@ -208,8 +208,6 @@ def _map_metadata_to_db_fields(data: dict, github_url: str) -> dict:
 
     return {
         "githubUrl":     github_url,
-        "repoName":      data.get("name"),
-        "repoOwner":     owner_info.get("login"),
         "defaultBranch": data.get("default_branch"),
         "isPrivate":     data.get("private", False),
         "description":   data.get("description"),
@@ -275,14 +273,12 @@ async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repositor
             id=str(uuid.uuid4()),
             userId=user_id,
             githubUrl=metadata["githubUrl"],
-            repoName=metadata.get("repoName"),
-            repoOwner=metadata.get("repoOwner"),
             defaultBranch=metadata.get("defaultBranch"),
             isPrivate=metadata.get("isPrivate", False),
             description=metadata.get("description"),
             language=metadata.get("language"),
             topics=metadata.get("topics", []),
-            statusId=RepoStatus.PENDING,
+            status=RepoStatus.PENDING,
         )
 
         db.add(new_repo)
@@ -335,7 +331,7 @@ def collect_clean_repo(repo_path: str) -> dict:
     for item in root.rglob("*"):
         rel        = item.relative_to(root)
         parts      = rel.parts
-        parent_dirs = parts[:-1]
+        
 
         # skip anything inside an excluded directory
         if any(d in EXCLUDED_DIRECTORIES for d in parts):
@@ -384,7 +380,7 @@ def collect_clean_repo(repo_path: str) -> dict:
             folders.add("/".join(parts[:i]))
 
     return {
-        "folders": sorted(folders),   # sorted so tree renders top-down
+        "folders": sorted(folders),   
         "files":   files,
     }
 

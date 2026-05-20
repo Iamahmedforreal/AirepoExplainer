@@ -17,12 +17,12 @@ async def submit_repo(request: Request, payload: TrustedGitHubRepoLink):
     user = authenticate_and_get_user_id(request)
 
     await request.app.state.redis.enqueue_job(
-        "index_repo",
+        "clone_repo_task",
         user_id=user["user_id"],
         github_url=str(payload.url),
     )
 
-    return {"status": "queued", "message": "Repository queued for indexing"}
+    return {"status": "queued", "message": "Repository queued for cloning"}
 
 
 """endpoint for frontend to poll for task progress. Returns the current phase of the background task by its ID."""

@@ -45,6 +45,7 @@ class TaskType(int, enum.Enum):
     CLONE         = 2
     CHUNK         = 3
     EMBED         = 4
+    PARSING       = 5
 
 
 class TaskStatus(int, enum.Enum):
@@ -142,8 +143,6 @@ class Repository(Base):
     userId        = Column(String, ForeignKey("users.id"), nullable=False)
 
     githubUrl     = Column(String, nullable=False)
-    repoName      = Column(String, nullable=True)
-    repoOwner     = Column(String, nullable=True)
     defaultBranch = Column(String, nullable=True)
 
     language      = Column(String, nullable=True)
@@ -302,7 +301,32 @@ class Message(Base):
         Index("ix_messages_conversationId", "conversationId"),
     )
 
-    # Indexes optimize graph traversal queries (finding dependencies and usages)
+
+class CodeChunk(Base):
+    __tablename__ = "code_chunks"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    repoId = Column(String, ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False)
+    path = Column(String, nullable=False)  # Relative path, e.g. "app/services/urlService.py"
+    type = Column(String, nullable=False)  # "module" | "class" | "method" | "function" | "interface" | "type"
+    name = Column(String, nullable=False)  # e.g., "save_repo"
+    fullName = Column(String, nullable=False)  # Fully qualified name, e.g. "app.services.urlService.save_repo"
+    startLine = Column(Integer, nullable=False)
+    endLine = Column(Integer, nullable=False)
+    content = Column(Text, nullable=False)
+    parentChunkId = Column(String, ForeignKey("code_chunks.id", ondelete="CASCADE"), nullable=True)
+
+    repo = relationship("Repository")
+    parent = relationship("CodeChunk", remote_side=[id], backref="children")
+
+    __table_args__ = (
+        Index("ix_code_chunks_repoId", "repoId"),
+        Index("ix_code_chunks_path", "path"),
+        Index("ix_code_chunks_type", "type"),
+        Index("ix_code_chunks_name", "name"),
+    )
+
+
 async def create_db_and_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
