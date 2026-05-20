@@ -4,7 +4,7 @@ Supports Python, JavaScript, TypeScript, and TSX using dynamic grammar loading
 and safe UTF-8 source-code parsing.
 """
 from pathlib import Path
-from tree_sitter import Language, Parser
+from tree_sitter import Language as TSLanguage, Parser
 from functools import  lru_cache
 
 # Precise extension mapping to standard Tree-sitter grammar keys
@@ -45,10 +45,10 @@ def _parse_single_language(language: str) -> Parser:
         raise ValueError(f"Unsupported tree-sitter language: {language}")
 
     try:
-        return Parser(language(capsule)) # newer Api style
+        return Parser(TSLanguage(capsule)) # newer Api style
     except TypeError:
         parser = Parser()                   # older API fallback
-        parser.language = Language(capsule)
+        parser.language = TSLanguage(capsule)
         return parser
 
 
