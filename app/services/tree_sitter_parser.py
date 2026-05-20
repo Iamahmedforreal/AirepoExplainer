@@ -78,16 +78,6 @@ def extract_languages_from_clean_files(files: list[dict]) -> set[str]:
     return sorted(list(languages))
 
 
-def get_parser(language: set[str]) -> dict[str, Parser]:
-    parser = {}
-    for lang in language:
-        try:
-            parser[lang] = _parse_single_language(lang)
-        except ValueError as e:
-            pass
-    return parser
-
-
 def parse_repo(files: list[dict]):
    
     for file in files:
@@ -99,6 +89,7 @@ def parse_repo(files: list[dict]):
             continue
 
         ast = parse_files(content, lang)
+        
 
         yield {
             "path": path,

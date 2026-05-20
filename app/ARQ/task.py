@@ -64,6 +64,8 @@ async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
             clone_result = clone_repo(owner, repo_name, github_url)
             clone_path = clone_result["clone_path"]
             file_count = len(clone_result["files"])
+            file_path = clone_result["files"]
+
 
             
 
@@ -85,12 +87,13 @@ async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
             )
             await db.commit()
 
-            await ctx.enqueue_job("parse_repo_task" , repo_id=repo_id, clone_path=clone_path)
+            await ctx.enqueue_job("parse_repo_task" , repo_id=repo_id, file_path=file_path)
 
             return {
                 "repo_id": repo_id,
                 "clone_path": clone_path,
-                "files_accepted": file_count
+                "files_accepted": file_count,
+                "files": file_path
             }
 
         except Exception as exc:
@@ -116,7 +119,7 @@ async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
 
 
 
-async def parse_repo_task(ctx, *, repo_id: int, clone_path: str) -> dict:
+async def parse_repo_task(ctx, *, repo_id: int, file_path: list[str]) -> dict:
     task_id = str(uuid.uuid4())
     started_at = datetime.now(timezone.utc)
 
@@ -135,6 +138,8 @@ async def parse_repo_task(ctx, *, repo_id: int, clone_path: str) -> dict:
 
         try:
             pass
+            
+
         
         except Exception as exc:
             completed_at = datetime.now(timezone.utc)
