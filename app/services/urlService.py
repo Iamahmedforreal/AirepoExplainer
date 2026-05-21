@@ -278,7 +278,8 @@ async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repositor
             description=metadata.get("description"),
             language=metadata.get("language"),
             topics=metadata.get("topics", []),
-            status=RepoStatus.PENDING,
+            statusId=RepoStatus.PENDING.value,
+           
         )
 
         db.add(new_repo)

@@ -26,7 +26,7 @@ def detect_language(path: str) -> str | None:
 
 
 @lru_cache(maxsize=None)
-def _parse_single_language(language: str) -> Parser:
+def _map_languages_to_correct_libary(language: str) -> Parser:
     """
     """
     if language == "python":
@@ -52,31 +52,14 @@ def _parse_single_language(language: str) -> Parser:
         return parser
 
 
-def parse_files(content: str, language: str):
+def parse_file(content: str, language: str):
     """
     Parse source code using the selected language grammar and return the root AST node.
     """
-    parser = _parse_single_language(language)
+    parser = _map_languages_to_correct_libary(language)
     # Safely parse content using UTF-8 encoding to match byte indices of the AST
     tree = parser.parse(content.encode("utf-8"))
     return tree.root_node
-
-
-def extract_languages_from_clean_files(files: list[dict]) -> set[str]:
-    """
-    Process a list of accepted file dictionaries and return a sorted list
-    of unique supported language names found.
-    """
-    languages = set()
-    for file_item in files:
-        # Extract path either from 'path' key
-        path_str = file_item.get("path")
-        if path_str:
-            lang = detect_language(path_str)
-            if lang:
-                languages.add(lang)
-    return sorted(list(languages))
-
 
 def parse_repo(files: list[dict]):
    
@@ -88,7 +71,7 @@ def parse_repo(files: list[dict]):
         if not lang:
             continue
 
-        ast = parse_files(content, lang)
+        ast = parse_file(content, lang)
         
 
         yield {

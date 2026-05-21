@@ -19,7 +19,7 @@ from app.services.urlService import (
     save_repo,
 )
 from app.services.clone_service import clone_repo
-from app.services.tree_sitter_parser import extract_languages_from_clean_files
+from app.services.tree_sitter_parser import parse_repo
 
 
 
@@ -64,7 +64,7 @@ async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
             clone_result = clone_repo(owner, repo_name, github_url)
             clone_path = clone_result["clone_path"]
             file_count = len(clone_result["files"])
-            file_path = clone_result["files"]
+            files = clone_result["files"]
 
 
             
@@ -87,13 +87,13 @@ async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
             )
             await db.commit()
 
-            await ctx.enqueue_job("parse_repo_task" , repo_id=repo_id, file_path=file_path)
+            await ctx.enqueue_job("parse_repo_task" , repo_id=repo_id, file_path=files)
 
             return {
                 "repo_id": repo_id,
                 "clone_path": clone_path,
                 "files_accepted": file_count,
-                "files": file_path
+                "files": files
             }
 
         except Exception as exc:
@@ -119,7 +119,7 @@ async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
 
 
 
-async def parse_repo_task(ctx, *, repo_id: int, file_path: list[str]) -> dict:
+async def parse_repo_task(ctx, *, repo_id: int, file: list[dict]) -> dict:
     task_id = str(uuid.uuid4())
     started_at = datetime.now(timezone.utc)
 
@@ -137,10 +137,10 @@ async def parse_repo_task(ctx, *, repo_id: int, file_path: list[str]) -> dict:
         await db.commit()
 
         try:
-            pass
-            
-
-        
+            ast_tree =  parse_repo(file) 
+            return{
+                "ast_tree":ast_tree
+            }
         except Exception as exc:
             completed_at = datetime.now(timezone.utc)
             await db.execute(
