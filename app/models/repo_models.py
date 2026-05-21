@@ -106,9 +106,7 @@ class MessageRoleLookup(Base):
 
 class User(Base):
     """
-    Platform account. The id is the Clerk user ID, not a generated UUID.
-    User records are created by the Clerk webhook on first sign-in.
-    No email or name is stored here — those live in Clerk.
+    user table from clerk
     """
     __tablename__ = "users"
 
@@ -130,12 +128,6 @@ class Repository(Base):
       - description                                        : prepended to LLM system prompt
       - topics                                             : pre-filters vector search by tag
       - isPrivate                                          : determines whether a GitHub token is required
-
-    Fields excluded intentionally: stars, license, sizeKb, isArchived,
-    repoCreatedAt, repoUpdatedAt — none of these affect chunking or retrieval.
-
-    Unique constraint on (userId, githubUrl) prevents a user from submitting
-    the same repo twice. Different users may index the same repo independently.
     """
     __tablename__ = "repositories"
 
@@ -178,11 +170,11 @@ class Repository(Base):
 
 class WorkerTask(Base):
     """
-    Tracks a single ARQ background job for one repository.
+    Tracks one background job stage for one repository.
 
-    One row is created per job dispatch. If a job is retried, attempts
-    increments in place rather than creating a new row — the history
-    is intentionally kept flat for simplicity.
+    The unique constraint on (repoId, taskTypeId) guarantees that each
+    repository can have only one row for a stage such as CLONE or PARSING.
+    Workers insert directly and let PostgreSQL reject duplicates.
 
     result stores a JSON summary of what the job produced, e.g.:
         {"files_processed": 18, "chunks_created": 142, "vectors_stored": 142}
@@ -223,6 +215,7 @@ class WorkerTask(Base):
     repo         = relationship("Repository", back_populates="tasks")
 
     __table_args__ = (
+        UniqueConstraint("repoId", "taskTypeId", name="uq_worker_tasks_repo_type"),
         Index("ix_worker_tasks_repoId", "repoId"),
         Index("ix_worker_tasks_status", "statusId"),
     )

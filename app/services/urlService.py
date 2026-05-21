@@ -241,9 +241,6 @@ async def extract_repo_info(github_url: str) -> tuple[dict, str, str]:
         metadata   - normalised dict ready for save_repo()
         owner      - GitHub owner login
         repo_name  - repository name
-
-    Raises ValueError on any failure so the caller gets a single,
-    consistent error type regardless of what went wrong internally.
     """
     try:
         owner, repo_name = await get_owner_and_repo(github_url)
@@ -279,7 +276,6 @@ async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repositor
             language=metadata.get("language"),
             topics=metadata.get("topics", []),
             statusId=RepoStatus.PENDING.value,
-           
         )
 
         db.add(new_repo)

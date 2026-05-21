@@ -1,10 +1,10 @@
 """
-background task file for ARQ workers. Each function here is designed to be run as a background task.
+ARQ background tasks for repository indexing.
 """
 import uuid
 from datetime import datetime, timezone
-from fastapi import HTTPException
-from sqlalchemy import update
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from app.models.db import async_session
 from app.models.repo_models import (
     Repository,
@@ -15,50 +15,94 @@ from app.models.repo_models import (
 )
 from app.services.urlService import (
     extract_repo_info,
-    check_existing_repo,
     save_repo,
 )
 from app.services.clone_service import clone_repo
 from app.services.tree_sitter_parser import parse_repo
 
 
+async def _get_existing_task(db, *, repo_id: str, task_type: TaskType) -> WorkerTask | None:
+    """
+    This function is intentionally used only after an IntegrityError. It is not
+    a pre-insert duplicate check.
+    """
+    result = await db.execute(
+        select(WorkerTask)
+        .where(
+            WorkerTask.repoId == repo_id,
+            WorkerTask.taskTypeId == task_type.value,
+        )
+        .order_by(WorkerTask.createdAt.desc())
+        .limit(1)
+    )
+    return result.scalars().first()
+
+
+async def _insert_task_or_get_existing(
+    db,
+    *,
+    repo_id: str,
+    task_type: TaskType,
+    started_at: datetime,
+) -> tuple[WorkerTask, bool]:
+    """
+    Atomically create a WorkerTask.
+
+    Returns (task, created).
+    - created=True means this worker owns the work and should execute it.
+    - created=False means the task already exists and this worker must exit.
+    """
+    task = WorkerTask(
+        id=str(uuid.uuid4()),
+        repoId=repo_id,
+        taskTypeId=task_type.value,
+        statusId=TaskStatus.RUNNING.value,
+        startedAt=started_at,
+        attempts=1,
+    )
+    db.add(task)
+
+    try:
+        await db.commit()
+        await db.refresh(task)
+        return task, True
+    except IntegrityError:
+        await db.rollback()
+        existing_task = await _get_existing_task(db, repo_id=repo_id, task_type=task_type)
+        if existing_task is None:
+            raise
+        return existing_task, False
+
 
 async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
     """
-    This function is designed to be run as a background task in ARQ.
+    Clone a repository and queue parsing.
+
+    Idempotency rule:
+    the clone task row is inserted before cloning starts. If the row already
+    exists, PostgreSQL raises IntegrityError and this worker returns the
+    existing task instead of cloning again.
     """
-    task_id = str(uuid.uuid4())
     started_at = datetime.now(timezone.utc)
 
     async with async_session() as db:
-       
-
-        # 1. Fetch metadata from GitHub
         metadata, owner, repo_name = await extract_repo_info(github_url)
 
-        # 2. Duplicate check
-        existing = await check_existing_repo(user_id, metadata["githubUrl"], db)
-        if existing:
-            raise HTTPException(status_code=400, detail="Repository already exists")
-
-        # 3. Save repo row
         repo = await save_repo(user_id, metadata, db)
         repo_id = repo.id
 
-        # Audit row
-        task_row = WorkerTask(
-            id=task_id,
-            repoId=repo_id,
-            taskTypeId=TaskType.CLONE,
-            statusId=TaskStatus.RUNNING,
-            startedAt=started_at,
-            attempts=1,
+        task_row, created = await _insert_task_or_get_existing(
+            db,
+            repo_id=repo_id,
+            task_type=TaskType.CLONE,
+            started_at=started_at,
         )
-        db.add(task_row)
-        await db.commit()
-
-        
-        # ── PRIORITY 2: shallow clone ─────────────────────────────────────────
+        if not created:
+            return {
+                "repo_id": repo_id,
+                "task_id": task_row.id,
+                "status": "already_exists",
+            }
 
         try:
             clone_result = clone_repo(owner, repo_name, github_url)
@@ -67,9 +111,6 @@ async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
             files = clone_result["files"]
 
 
-            
-
-            # Mark success
             completed_at = datetime.now(timezone.utc)
             result = {
                 "clone_path": clone_path,
@@ -78,37 +119,41 @@ async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
             await db.execute(
                 update(Repository)
                 .where(Repository.id == repo_id)
-                .values(statusId=RepoStatus.INDEXED)
+                .values(statusId=RepoStatus.INDEXED.value)
             )
             await db.execute(
                 update(WorkerTask)
-                .where(WorkerTask.id == task_id)
-                .values(statusId=TaskStatus.SUCCESS, completedAt=completed_at, result=result)
+                .where(WorkerTask.id == task_row.id)
+                .values(statusId=TaskStatus.SUCCESS.value, completedAt=completed_at, result=result)
             )
             await db.commit()
 
-            await ctx["redis"].enqueue_job("parse_repo_task", repo_id=repo_id, files=files)
+            parse_job = await ctx["redis"].enqueue_job(
+                "parse_repo_task",
+                repo_id=repo_id,
+                files=files,
+            )
 
             return {
                 "repo_id": repo_id,
+                "parse_job_id": parse_job.job_id if parse_job else None,
                 "clone_path": clone_path,
                 "files_accepted": file_count,
                 "files": files
             }
 
         except Exception as exc:
-           
             completed_at = datetime.now(timezone.utc)
             await db.execute(
                 update(Repository)
                 .where(Repository.id == repo_id)
-                .values(statusId=RepoStatus.FAILED)
+                .values(statusId=RepoStatus.FAILED.value)
             )
             await db.execute(
                 update(WorkerTask)
-                .where(WorkerTask.id == task_id)
+                .where(WorkerTask.id == task_row.id)
                 .values(
-                    statusId=TaskStatus.FAILED,
+                    statusId=TaskStatus.FAILED.value,
                     completedAt=completed_at,
                     errorType=type(exc).__name__,
                     errorMessage=str(exc),
@@ -120,21 +165,24 @@ async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
 
 
 async def parse_repo_task(ctx, *, repo_id: str, files: list[dict]) -> dict:
-    task_id = str(uuid.uuid4())
+    """
+    Parse cloned repository files.
+    """
     started_at = datetime.now(timezone.utc)
 
     async with async_session() as db:
-        # Audit row
-        task_row = WorkerTask(
-            id=task_id,
-            repoId=repo_id,
-            taskTypeId=TaskType.PARSING,
-            statusId=TaskStatus.RUNNING,
-            startedAt=started_at,
-            attempts=1,
+        task_row, created = await _insert_task_or_get_existing(
+            db,
+            repo_id=repo_id,
+            task_type=TaskType.PARSING,
+            started_at=started_at,
         )
-        db.add(task_row)
-        await db.commit()
+        if not created:
+            return {
+                "repo_id": repo_id,
+                "task_id": task_row.id,
+                "status": "already_exists",
+            }
 
         try:
             ast_tree = parse_repo(files)
@@ -144,8 +192,8 @@ async def parse_repo_task(ctx, *, repo_id: str, files: list[dict]) -> dict:
             }
             await db.execute(
                 update(WorkerTask)
-                .where(WorkerTask.id == task_id)
-                .values(statusId=TaskStatus.SUCCESS, completedAt=completed_at, result=result)
+                .where(WorkerTask.id == task_row.id)
+                .values(statusId=TaskStatus.SUCCESS.value, completedAt=completed_at, result=result)
             )
             await db.commit()
 
@@ -158,9 +206,9 @@ async def parse_repo_task(ctx, *, repo_id: str, files: list[dict]) -> dict:
             completed_at = datetime.now(timezone.utc)
             await db.execute(
                 update(WorkerTask)
-                .where(WorkerTask.id == task_id)
+                .where(WorkerTask.id == task_row.id)
                 .values(
-                    statusId=TaskStatus.FAILED,
+                    statusId=TaskStatus.FAILED.value,
                     completedAt=completed_at,
                     errorType=type(exc).__name__,
                     errorMessage=str(exc),
