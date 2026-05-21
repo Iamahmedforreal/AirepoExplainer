@@ -87,7 +87,7 @@ async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
             )
             await db.commit()
 
-            await ctx.enqueue_job("parse_repo_task" , repo_id=repo_id, file_path=files)
+            await ctx["redis"].enqueue_job("parse_repo_task", repo_id=repo_id, files=files)
 
             return {
                 "repo_id": repo_id,
@@ -119,7 +119,7 @@ async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
 
 
 
-async def parse_repo_task(ctx, *, repo_id: int, file: list[dict]) -> dict:
+async def parse_repo_task(ctx, *, repo_id: str, files: list[dict]) -> dict:
     task_id = str(uuid.uuid4())
     started_at = datetime.now(timezone.utc)
 
@@ -137,9 +137,22 @@ async def parse_repo_task(ctx, *, repo_id: int, file: list[dict]) -> dict:
         await db.commit()
 
         try:
-            ast_tree =  parse_repo(file) 
-            return{
-                "ast_tree":ast_tree
+            ast_tree = parse_repo(files)
+            completed_at = datetime.now(timezone.utc)
+            result = {
+                "files_parsed": len(ast_tree),
+            }
+            await db.execute(
+                update(WorkerTask)
+                .where(WorkerTask.id == task_id)
+                .values(statusId=TaskStatus.SUCCESS, completedAt=completed_at, result=result)
+            )
+            await db.commit()
+
+            return {
+                "repo_id": repo_id,
+                "files_parsed": len(ast_tree),
+                "ast_tree": ast_tree,
             }
         except Exception as exc:
             completed_at = datetime.now(timezone.utc)
