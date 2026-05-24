@@ -320,6 +320,27 @@ class CodeChunk(Base):
     )
 
 
+class CodeConnection(Base):
+    __tablename__ = "code_connections"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    repoId = Column(String, ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False)
+    sourceChunkId = Column(String, ForeignKey("code_chunks.id", ondelete="CASCADE"), nullable=False)
+    targetSymbol = Column(String, nullable=False)
+    targetChunkId = Column(String, ForeignKey("code_chunks.id", ondelete="CASCADE"), nullable=True)
+    connectionType = Column(String, nullable=False)  # import | call
+
+    repo = relationship("Repository")
+    source_chunk = relationship("CodeChunk", foreign_keys=[sourceChunkId])
+    target_chunk = relationship("CodeChunk", foreign_keys=[targetChunkId])
+
+    __table_args__ = (
+        Index("ix_code_connections_repoId", "repoId"),
+        Index("ix_code_connections_sourceChunkId", "sourceChunkId"),
+        Index("ix_code_connections_targetChunkId", "targetChunkId"),
+    )
+
+
 async def create_db_and_tables():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
