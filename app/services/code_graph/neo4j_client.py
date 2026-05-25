@@ -5,7 +5,7 @@ from neo4j import GraphDatabase
 
 from app.config.app_config import settings
 
-
+"""This module defines a Neo4jGraphWriter class that manages the connection to the Neo4j database and provides methods for writing graph data."""
 class Neo4jGraphWriter:
     def __init__(self):
         self._driver = GraphDatabase.driver(
