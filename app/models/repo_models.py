@@ -136,6 +136,8 @@ class Repository(Base):
 
     githubUrl     = Column(String, nullable=False)
     defaultBranch = Column(String, nullable=True)
+    RepoOwner     = Column(String, nullable=True)
+    RepoName      = Column(String, nullable=True)
 
     language      = Column(String, nullable=True)
     description   = Column(String, nullable=True)
