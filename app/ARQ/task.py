@@ -10,16 +10,21 @@ from sqlalchemy.exc import IntegrityError
 
 from app.models.db import async_session
 from app.models.repo_models import (
-    Repository,
-    RepoStatus,
     TaskStatus,
     TaskType,
     WorkerTask,
 )
-from app.services.urlService import extract_repo_info, save_repo
+from app.services.urlService import extract_repo_info
 from app.services.clone_service import clone_repo, load_files_from_clone
 from app.services.code_store import persist_extraction
 from app.services.code_graph.neo4j_client import write_repo_graph
+from app.services.repo_metadata import (
+    get_repo_for_worker,
+    apply_github_metadata,
+    mark_clone_complete,
+    mark_indexed,
+    mark_failed,
+)
 
 
 async def _get_existing_task(db, *, repo_id: str, task_type: TaskType) -> WorkerTask | None:
@@ -64,14 +69,12 @@ async def _insert_task_or_get_existing(
         return existing_task, False
 
 
-async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
-    """Clone repo to disk and queue parsing."""
+async def clone_repo_task(ctx, *, repo_id: str) -> dict:
+    """Clone repo to disk using metadata on the Repository row; queue parsing."""
     started_at = datetime.now(timezone.utc)
 
     async with async_session() as db:
-        metadata, owner, repo_name = await extract_repo_info(github_url)
-        repo = await save_repo(user_id, metadata, db)
-        repo_id = repo.id
+        repo = await get_repo_for_worker(db, repo_id)
 
         task_row, created = await _insert_task_or_get_existing(
             db,
@@ -83,16 +86,19 @@ async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
             return {"repo_id": repo_id, "task_id": task_row.id, "status": "already_exists"}
 
         try:
-            await db.execute(
-                update(Repository)
-                .where(Repository.id == repo_id)
-                .values(statusId=RepoStatus.INDEXING.value)
-            )
-            await db.commit()
+            metadata, _, _ = await extract_repo_info(repo.githubUrl)
+            await apply_github_metadata(db, repo, metadata)
 
-            clone_result = clone_repo(owner, repo_name, github_url)
+            clone_result = clone_repo(repo.repoOwner, repo.repoName, repo.githubUrl)
             clone_path = clone_result["clone_path"]
             file_count = len(clone_result["files"])
+
+            await mark_clone_complete(
+                db,
+                repo,
+                clone_path=clone_path,
+                source_file_count=file_count,
+            )
 
             completed_at = datetime.now(timezone.utc)
             result = {
@@ -108,26 +114,18 @@ async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
             )
             await db.commit()
 
-            parse_job = await ctx["redis"].enqueue_job(
-                "parse_repo_task",
-                repo_id=repo_id,
-                clone_path=clone_path,
-            )
+            parse_job = await ctx["redis"].enqueue_job("parse_repo_task", repo_id=repo_id)
 
             return {
                 "repo_id": repo_id,
+                "task_id": task_row.id,
                 "parse_job_id": parse_job.job_id if parse_job else None,
-                "clone_path": clone_path,
                 "files_accepted": file_count,
             }
 
         except Exception as exc:
             completed_at = datetime.now(timezone.utc)
-            await db.execute(
-                update(Repository)
-                .where(Repository.id == repo_id)
-                .values(statusId=RepoStatus.FAILED.value)
-            )
+            await mark_failed(db, repo_id)
             await db.execute(
                 update(WorkerTask)
                 .where(WorkerTask.id == task_row.id)
@@ -142,11 +140,13 @@ async def clone_repo_task(ctx, *, user_id: str, github_url: str) -> dict:
             raise
 
 
-async def parse_repo_task(ctx, *, repo_id: str, clone_path: str) -> dict:
-    """Read files from disk clone, extract AST symbols, store connections in Postgres + Neo4j."""
+async def parse_repo_task(ctx, *, repo_id: str) -> dict:
+    """Read clone from Repository.clonePath; extract symbols; store Postgres + Neo4j."""
     started_at = datetime.now(timezone.utc)
 
     async with async_session() as db:
+        repo = await get_repo_for_worker(db, repo_id)
+
         task_row, created = await _insert_task_or_get_existing(
             db,
             repo_id=repo_id,
@@ -156,8 +156,11 @@ async def parse_repo_task(ctx, *, repo_id: str, clone_path: str) -> dict:
         if not created:
             return {"repo_id": repo_id, "task_id": task_row.id, "status": "already_exists"}
 
+        if not repo.clonePath:
+            raise ValueError(f"Repository {repo_id} has no clonePath — run clone first")
+
         try:
-            files = load_files_from_clone(clone_path)
+            files = load_files_from_clone(repo.clonePath)
             summary = await persist_extraction(db, repo_id, files)
 
             await asyncio.to_thread(
@@ -168,6 +171,13 @@ async def parse_repo_task(ctx, *, repo_id: str, clone_path: str) -> dict:
                 summary["connection_payloads"],
             )
 
+            await mark_indexed(
+                db,
+                repo,
+                chunk_count=summary["chunks_created"],
+                connection_count=summary["connections_created"],
+            )
+
             completed_at = datetime.now(timezone.utc)
             result = {
                 "files_extracted": summary["files_extracted"],
@@ -175,11 +185,6 @@ async def parse_repo_task(ctx, *, repo_id: str, clone_path: str) -> dict:
                 "connections_created": summary["connections_created"],
             }
 
-            await db.execute(
-                update(Repository)
-                .where(Repository.id == repo_id)
-                .values(statusId=RepoStatus.INDEXED.value)
-            )
             await db.execute(
                 update(WorkerTask)
                 .where(WorkerTask.id == task_row.id)
@@ -191,11 +196,7 @@ async def parse_repo_task(ctx, *, repo_id: str, clone_path: str) -> dict:
 
         except Exception as exc:
             completed_at = datetime.now(timezone.utc)
-            await db.execute(
-                update(Repository)
-                .where(Repository.id == repo_id)
-                .values(statusId=RepoStatus.FAILED.value)
-            )
+            await mark_failed(db, repo_id)
             await db.execute(
                 update(WorkerTask)
                 .where(WorkerTask.id == task_row.id)

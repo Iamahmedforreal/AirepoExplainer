@@ -122,12 +122,11 @@ class Repository(Base):
     """
     A GitHub repository submitted by a user for indexing.
 
-    Only fields that serve a concrete purpose in the pipeline are stored:
-      - githubUrl / repoName / repoOwner / defaultBranch  : GitHub API calls
-      - language                                           : selects LangChain splitter
-      - description                                        : prepended to LLM system prompt
-      - topics                                             : pre-filters vector search by tag
-      - isPrivate                                          : determines whether a GitHub token is required
+    GitHub metadata (set at submit):
+      githubUrl, repoOwner, repoName, defaultBranch, language, description, topics, isPrivate
+
+    Pipeline metadata (set by clone/parse workers):
+      clonePath, sourceFileCount, chunkCount, connectionCount, indexedAt, statusId
     """
     __tablename__ = "repositories"
 
@@ -135,14 +134,20 @@ class Repository(Base):
     userId        = Column(String, ForeignKey("users.id"), nullable=False)
 
     githubUrl     = Column(String, nullable=False)
+    repoOwner     = Column("RepoOwner", String, nullable=False)
+    repoName      = Column("RepoName", String, nullable=False)
     defaultBranch = Column(String, nullable=True)
-    RepoOwner     = Column(String, nullable=True)
-    RepoName      = Column(String, nullable=True)
 
     language      = Column(String, nullable=True)
     description   = Column(String, nullable=True)
     topics        = Column(ARRAY(String), nullable=True)
     isPrivate     = Column(Boolean, default=False, nullable=False)
+
+    clonePath       = Column(String, nullable=True)
+    sourceFileCount = Column(Integer, nullable=True)
+    chunkCount      = Column(Integer, nullable=True)
+    connectionCount = Column(Integer, nullable=True)
+    indexedAt       = Column(DateTime(timezone=True), nullable=True)
 
     statusId      = Column(
         Integer,

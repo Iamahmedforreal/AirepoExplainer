@@ -196,23 +196,46 @@ async def _fetch_repo_from_github(owner: str, repo_name: str) -> dict:
         raise RuntimeError("Could not connect to GitHub")
 
 
+async def _fetch_repo_topics(owner: str, repo_name: str) -> list[str]:
+    """GitHub topics live on a separate endpoint from the main repo payload."""
+    client = _get_client()
+    try:
+        response = await client.get(
+            f"/repos/{owner}/{repo_name}/topics",
+            headers={"Accept": "application/vnd.github.mercy-preview+json"},
+            timeout=10.0,
+        )
+        if response.status_code == 200:
+            return response.json().get("names", [])
+    except httpx.HTTPError:
+        pass
+    return []
+
+
 # Metadata extraction and normalisation
 
 
-def _map_metadata_to_db_fields(data: dict, github_url: str) -> dict:
+def _map_metadata_to_db_fields(
+    data: dict,
+    github_url: str,
+    owner: str,
+    repo_name: str,
+    topics: list[str],
+) -> dict:
     """
     Normalise a raw GitHub API response into the fields expected by Repository.
     """
-  
-    owner_info   = data.get("owner") or {}
+    owner_info = data.get("owner") or {}
 
     return {
-        "githubUrl":     github_url,
+        "githubUrl": github_url,
+        "repoOwner": owner_info.get("login") or owner,
+        "repoName": data.get("name") or repo_name,
         "defaultBranch": data.get("default_branch"),
-        "isPrivate":     data.get("private", False),
-        "description":   data.get("description"),
-        "language":      data.get("language"),
-        "topics":        data.get("topics", [])
+        "isPrivate": data.get("private", False),
+        "description": data.get("description"),
+        "language": data.get("language"),
+        "topics": topics,
     }
 
 
@@ -245,7 +268,8 @@ async def extract_repo_info(github_url: str) -> tuple[dict, str, str]:
     try:
         owner, repo_name = await get_owner_and_repo(github_url)
         raw = await _fetch_repo_from_github(owner, repo_name)
-        metadata = _map_metadata_to_db_fields(raw, github_url)
+        topics = await _fetch_repo_topics(owner, repo_name)
+        metadata = _map_metadata_to_db_fields(raw, github_url, owner, repo_name, topics)
         return metadata, owner, repo_name
     except Exception as error:
         raise ValueError(f"Failed to extract repo info: {error}")
@@ -270,6 +294,8 @@ async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repositor
             id=str(uuid.uuid4()),
             userId=user_id,
             githubUrl=metadata["githubUrl"],
+            repoOwner=metadata["repoOwner"],
+            repoName=metadata["repoName"],
             defaultBranch=metadata.get("defaultBranch"),
             isPrivate=metadata.get("isPrivate", False),
             description=metadata.get("description"),
