@@ -3,6 +3,7 @@ Extract symbols, imports, and call sites from source files using Tree-sitter.
 """
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
 
 from app.services.tree_sitter_parser import detect_language, parse_file
 
@@ -15,6 +16,12 @@ class Symbol:
     start_line: int
     end_line: int
     parent_full_name: str | None = None
+    language: str | None = None
+    signature: str | None = None
+    docstring: str | None = None
+    decorators: list[str] = field(default_factory=list)
+    visibility: str = "public"
+    body_start_line: int | None = None
 
 
 @dataclass
@@ -39,6 +46,7 @@ class FileExtraction:
     symbols: list[Symbol] = field(default_factory=list)
     imports: list[ImportRef] = field(default_factory=list)
     calls: list[CallSite] = field(default_factory=list)
+    exports: list[str] = field(default_factory=list)
 
 
 def path_to_module(path: str) -> str:
@@ -71,11 +79,113 @@ def _definition_node(node):
         return node
     if node.type == "decorated_definition":
         return _child_by_type(node, "function_definition") or _child_by_type(node, "class_definition")
+    if node.type == "export_statement":
+        for child in node.children:
+            exported = _definition_node(child)
+            if exported:
+                return exported
     return None
 
 
+def _semantic_node(def_node):
+    parent = getattr(def_node, "parent", None)
+    if parent is not None and parent.type == "decorated_definition":
+        return parent
+    return def_node
+
+
+def _declaration_source(content: str, node) -> str:
+    body = _child_by_type(node, "block") or _child_by_type(node, "statement_block")
+    end_byte = body.start_byte if body else node.end_byte
+    text = content[node.start_byte : end_byte].strip()
+    return " ".join(line.strip() for line in text.splitlines() if line.strip())
+
+
+def _body_start_line(node) -> int | None:
+    body = _child_by_type(node, "block") or _child_by_type(node, "statement_block")
+    if body:
+        return _line(body)
+    return None
+
+
+def _clean_string_literal(text: str) -> str:
+    text = text.strip()
+    prefixes = ("r", "u", "f", "b", "R", "U", "F", "B")
+    while text and text[0] in prefixes:
+        text = text[1:].strip()
+    for quote in ('"""', "'''", '"', "'"):
+        if text.startswith(quote) and text.endswith(quote):
+            return text[len(quote):-len(quote)].strip()
+    return text
+
+
+def _extract_python_docstring(node, content: str) -> str | None:
+    body = _child_by_type(node, "block")
+    if not body:
+        return None
+    for child in body.children:
+        if child.type in (":", "pass"):
+            continue
+        if child.type == "expression_statement":
+            string_node = _child_by_type(child, "string")
+            if string_node:
+                return _clean_string_literal(_node_text(content, string_node))
+        return None
+    return None
+
+
+def _extract_decorators(node, content: str) -> list[str]:
+    parent = getattr(node, "parent", None)
+    if parent is None or parent.type != "decorated_definition":
+        return []
+    return [
+        _node_text(content, child).strip()
+        for child in parent.children
+        if child.type == "decorator"
+    ]
+
+
+def _visibility(name: str) -> str:
+    if name.startswith("#") or (name.startswith("_") and not name.startswith("__")):
+        return "private"
+    return "public"
+
+
+def _extract_js_import(node, content: str) -> tuple[str, list[str]]:
+    text = _node_text(content, node).strip().rstrip(";")
+    source = _child_by_type(node, "string")
+    module_name = _node_text(content, source).strip("'\"") if source else text
+    names: list[str] = []
+
+    named_match = re.search(r"\{(?P<names>[^}]+)\}", text)
+    if named_match:
+        for raw_name in named_match.group("names").split(","):
+            name = raw_name.strip()
+            if name:
+                names.append(name.replace(" as ", " as "))
+
+    default_match = re.match(r"import\s+(?P<name>[A-Za-z_$][\w$]*)\s*(?:,|\s+from)", text)
+    if default_match:
+        default_name = default_match.group("name")
+        if default_name not in names:
+            names.append(default_name)
+
+    namespace_match = re.search(r"\*\s+as\s+(?P<name>[A-Za-z_$][\w$]*)", text)
+    if namespace_match:
+        namespace_name = namespace_match.group("name")
+        if namespace_name not in names:
+            names.append(namespace_name)
+
+    return module_name, names
+
+
 def _extract_name(node, content: str) -> str | None:
-    name_node = _child_by_type(node, "name") or _child_by_type(node, "identifier")
+    name_node = (
+        _child_by_type(node, "name")
+        or _child_by_type(node, "identifier")
+        or _child_by_type(node, "type_identifier")
+        or _child_by_type(node, "property_identifier")
+    )
     if name_node:
         return _node_text(content, name_node)
   # arrow functions assigned to const
@@ -96,10 +206,17 @@ def _walk_python(node, content: str, path: str, module: str,
         name = _extract_name(def_node, content)
         if name:
             full = f"{module}.{name}" if not class_stack else f"{module}.{'.'.join(class_stack)}.{name}"
+            semantic_node = _semantic_node(def_node)
             result.symbols.append(Symbol(
                 name=name, kind="class", full_name=full,
-                start_line=_line(def_node), end_line=_end_line(def_node),
+                start_line=_line(semantic_node), end_line=_end_line(def_node),
                 parent_full_name=f"{module}.{'.'.join(class_stack)}" if class_stack else module,
+                language="python",
+                signature=_declaration_source(content, def_node),
+                docstring=_extract_python_docstring(def_node, content),
+                decorators=_extract_decorators(def_node, content),
+                visibility=_visibility(name),
+                body_start_line=_body_start_line(def_node),
             ))
             for child in def_node.children:
                 _walk_python(child, content, path, module, class_stack + [name], fn_stack, result)
@@ -112,10 +229,17 @@ def _walk_python(node, content: str, path: str, module: str,
             prefix = f"{module}.{'.'.join(class_stack)}" if class_stack else module
             full = f"{prefix}.{name}"
             parent = f"{module}.{'.'.join(class_stack)}" if class_stack else module
+            semantic_node = _semantic_node(def_node)
             result.symbols.append(Symbol(
                 name=name, kind=kind, full_name=full,
-                start_line=_line(def_node), end_line=_end_line(def_node),
+                start_line=_line(semantic_node), end_line=_end_line(def_node),
                 parent_full_name=parent,
+                language="python",
+                signature=_declaration_source(content, def_node),
+                docstring=_extract_python_docstring(def_node, content),
+                decorators=_extract_decorators(def_node, content),
+                visibility=_visibility(name),
+                body_start_line=_body_start_line(def_node),
             ))
             fn_stack = fn_stack + [full]
             for child in def_node.children:
@@ -163,7 +287,15 @@ def _walk_js(node, content: str, path: str, module: str,
                 name=name, kind="class", full_name=full,
                 start_line=_line(def_node), end_line=_end_line(def_node),
                 parent_full_name=module,
+                language=result.language,
+                signature=_declaration_source(content, def_node),
+                docstring=None,
+                decorators=[],
+                visibility=_visibility(name),
+                body_start_line=_body_start_line(def_node),
             ))
+            if getattr(node, "type", None) == "export_statement":
+                result.exports.append(full)
             for child in def_node.children:
                 _walk_js(child, content, path, module, class_stack + [name], fn_stack, result)
             return
@@ -179,7 +311,15 @@ def _walk_js(node, content: str, path: str, module: str,
                 name=name, kind=kind, full_name=full,
                 start_line=_line(def_node), end_line=_end_line(def_node),
                 parent_full_name=parent,
+                language=result.language,
+                signature=_declaration_source(content, def_node),
+                docstring=None,
+                decorators=[],
+                visibility=_visibility(name),
+                body_start_line=_body_start_line(def_node),
             ))
+            if getattr(node, "type", None) == "export_statement":
+                result.exports.append(full)
             fn_stack = fn_stack + [full]
             for child in def_node.children:
                 _walk_js(child, content, path, module, class_stack, fn_stack, result)
@@ -197,16 +337,23 @@ def _walk_js(node, content: str, path: str, module: str,
                 name=name, kind="function", full_name=full,
                 start_line=_line(def_node), end_line=_end_line(def_node),
                 parent_full_name=module,
+                language=result.language,
+                signature=_declaration_source(content, def_node),
+                docstring=None,
+                decorators=[],
+                visibility=_visibility(name),
+                body_start_line=_body_start_line(def_node),
             ))
+            if getattr(node, "type", None) == "export_statement":
+                result.exports.append(full)
             fn_stack = fn_stack + [full]
             for child in fn_child.children:
                 _walk_js(child, content, path, module, class_stack, fn_stack, result)
             return
 
     if node.type == "import_statement":
-        source = _child_by_type(node, "string") or _child_by_type(node, "import_clause")
-        module_name = _node_text(content, source).strip("'\"") if source else _node_text(content, node)
-        result.imports.append(ImportRef(module=module_name, names=[], line=_line(node), kind="import"))
+        module_name, names = _extract_js_import(node, content)
+        result.imports.append(ImportRef(module=module_name, names=names, line=_line(node), kind="import"))
 
     if node.type == "call_expression" and fn_stack:
         fn_node = node.children[0] if node.children else None

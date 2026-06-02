@@ -314,6 +314,7 @@ class CodeChunk(Base):
     startLine = Column(Integer, nullable=False)
     endLine = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
+    metadataJson = Column("metadata", JSON, nullable=False, default=dict)
     parentChunkId = Column(String, ForeignKey("code_chunks.id", ondelete="CASCADE"), nullable=True)
 
     repo = relationship("Repository")
@@ -336,6 +337,10 @@ class CodeConnection(Base):
     targetSymbol = Column(String, nullable=False)
     targetChunkId = Column(String, ForeignKey("code_chunks.id", ondelete="CASCADE"), nullable=True)
     connectionType = Column(String, nullable=False)  # import | call
+    sourceLine = Column(Integer, nullable=True)
+    targetPath = Column(String, nullable=True)
+    confidence = Column(String, nullable=False, default="unresolved")  # resolved | partial | unresolved
+    metadataJson = Column("metadata", JSON, nullable=False, default=dict)
 
     repo = relationship("Repository")
     source_chunk = relationship("CodeChunk", foreign_keys=[sourceChunkId])
