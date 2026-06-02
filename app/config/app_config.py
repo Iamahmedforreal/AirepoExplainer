@@ -9,11 +9,6 @@ class Settings(BaseSettings):
     clerk_secret_key: str = Field(..., validation_alias="CLEERK_SCERET_KEY")
     clone_base_dir: str = r"C:\Users\hp\repoAiProject\cloned_repos"
 
-    # Neo4j — code graph
-    neo4j_uri: str = "bolt://localhost:7687"
-    neo4j_user: str = "neo4j"
-    neo4j_password: str = ""
-
     class Config:
         env_file = ".env"
         extra = "ignore"

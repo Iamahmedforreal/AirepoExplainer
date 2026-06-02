@@ -16,4 +16,4 @@ class WorkerSettings:
     on_startup = startup
     on_shutdown = shutdown
     max_jobs = 10       # each worker handles up to 10 repos concurrently
-    job_timeout = 600   # clone + parse + graph
+    job_timeout = 600   # clone + parse

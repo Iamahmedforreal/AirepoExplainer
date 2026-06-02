@@ -26,5 +26,4 @@ dependencies = [
     "tree-sitter-python>=0.25.0",
     "tree-sitter-typescript>=0.23.2",
     "uvicorn>=0.44.0",
-    "neo4j>=5.25.0",
 ]

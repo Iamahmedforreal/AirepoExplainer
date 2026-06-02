@@ -23,8 +23,8 @@ async def persist_extraction(
     files: list[dict],
 ) -> dict:
     """
-    Extract symbols, save CodeChunk + CodeConnection rows.
-    Returns summary dict with chunk/connection payloads for Neo4j.
+    Extract symbols, save CodeChunk + CodeConnection rows in PostgreSQL.
+    Returns a summary dict with counts and chunk/connection payloads.
     """
     await db.execute(delete(CodeConnection).where(CodeConnection.repoId == repo_id))
     await db.execute(delete(CodeChunk).where(CodeChunk.repoId == repo_id))

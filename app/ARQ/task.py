@@ -1,7 +1,6 @@
 """
 ARQ background tasks for repository indexing.
 """
-import asyncio
 import uuid
 from datetime import datetime, timezone
 
@@ -17,7 +16,6 @@ from app.models.repo_models import (
 from app.services.urlService import extract_repo_info
 from app.services.clone_service import clone_repo, load_files_from_clone
 from app.services.code_store import persist_extraction
-from app.services.code_graph.neo4j_client import write_repo_graph
 from app.services.repo_metadata import (
     get_repo_for_worker,
     apply_github_metadata,
@@ -141,7 +139,7 @@ async def clone_repo_task(ctx, *, repo_id: str) -> dict:
 
 
 async def parse_repo_task(ctx, *, repo_id: str) -> dict:
-    """Read clone from Repository.clonePath; extract symbols; store Postgres + Neo4j."""
+    """Read clone from Repository.clonePath; extract symbols; store chunks + connections in Postgres."""
     started_at = datetime.now(timezone.utc)
 
     async with async_session() as db:
@@ -162,14 +160,6 @@ async def parse_repo_task(ctx, *, repo_id: str) -> dict:
         try:
             files = load_files_from_clone(repo.clonePath)
             summary = await persist_extraction(db, repo_id, files)
-
-            await asyncio.to_thread(
-                write_repo_graph,
-                repo_id,
-                files,
-                summary["chunk_payloads"],
-                summary["connection_payloads"],
-            )
 
             await mark_indexed(
                 db,
