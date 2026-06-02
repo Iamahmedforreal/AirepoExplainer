@@ -91,12 +91,7 @@ async def clone_repo_task(ctx, *, repo_id: str) -> dict:
             clone_path = clone_result["clone_path"]
             file_count = len(clone_result["files"])
 
-            await mark_clone_complete(
-                db,
-                repo,
-                clone_path=clone_path,
-                source_file_count=file_count,
-            )
+            await mark_clone_complete( db,repo, clone_path=clone_path,source_file_count=file_count)
 
             completed_at = datetime.now(timezone.utc)
             result = {
