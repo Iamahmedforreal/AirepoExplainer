@@ -12,3 +12,6 @@ wheels/
 # Environment variables
 .env
 alembic/versions/__pycache__/
+
+#docker-compose
+docker-compose.yml

@@ -14,10 +14,11 @@ import uuid
 from sqlalchemy import (
     ARRAY, JSON, Boolean, Column, DateTime,
     Enum, Index, Integer, String, Text,
-    ForeignKey, UniqueConstraint
+    ForeignKey, UniqueConstraint, text
 )
 from sqlalchemy.sql import func
 from sqlalchemy.orm import DeclarativeBase, relationship
+from pgvector.sqlalchemy import Vector
 from app.models.db import engine
 
 
@@ -328,6 +329,29 @@ class CodeChunk(Base):
     )
 
 
+class CodeChunkEmbedding(Base):
+    __tablename__ = "code_chunk_embeddings"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    repoId = Column(String, ForeignKey("repositories.id", ondelete="CASCADE"), nullable=False)
+    chunkId = Column(String, ForeignKey("code_chunks.id", ondelete="CASCADE"), nullable=False)
+    embeddingModel = Column(String, nullable=False)
+    embeddingDimensions = Column(Integer, nullable=False)
+    contentHash = Column(String, nullable=False)
+    vector = Column(Vector(1536), nullable=False)
+    createdAt = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    repo = relationship("Repository")
+    chunk = relationship("CodeChunk")
+
+    __table_args__ = (
+        UniqueConstraint("chunkId", "embeddingModel", name="uq_code_chunk_embeddings_chunk_model"),
+        Index("ix_code_chunk_embeddings_repoId", "repoId"),
+        Index("ix_code_chunk_embeddings_chunkId", "chunkId"),
+        Index("ix_code_chunk_embeddings_model", "embeddingModel"),
+    )
+
+
 class CodeConnection(Base):
     __tablename__ = "code_connections"
 
@@ -355,6 +379,7 @@ class CodeConnection(Base):
 
 async def create_db_and_tables():
     async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.run_sync(Base.metadata.create_all)
 
     # Seed the lookup tables on application startup

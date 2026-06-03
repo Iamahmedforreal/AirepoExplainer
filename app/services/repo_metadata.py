@@ -90,6 +90,20 @@ async def mark_indexed(
     await db.commit()
 
 
+async def mark_parsed(
+    db: AsyncSession,
+    repo: Repository,
+    *,
+    chunk_count: int,
+    connection_count: int,
+) -> None:
+    repo.chunkCount = chunk_count
+    repo.connectionCount = connection_count
+    repo.indexedAt = None
+    repo.statusId = RepoStatus.INDEXING.value
+    await db.commit()
+
+
 async def mark_failed(db: AsyncSession, repo_id: str) -> None:
     repo = await get_repo_for_worker(db, repo_id)
     repo.statusId = RepoStatus.FAILED.value

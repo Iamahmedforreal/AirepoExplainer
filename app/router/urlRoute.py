@@ -105,6 +105,8 @@ async def get_task_phase(task_id: str, request: Request, db: AsyncSession = Depe
             phase = "cloning"
         elif ttval == "parsing":
             phase = "parsing"
+        elif ttval == "embed":
+            phase = "embedding"
         else:
             phase = "indexing"
     elif task.statusId == TaskStatus.RETRYING:

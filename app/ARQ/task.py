@@ -16,11 +16,13 @@ from app.models.repo_models import (
 from app.services.urlService import extract_repo_info
 from app.services.clone_service import clone_repo, load_files_from_clone
 from app.services.code_store import persist_extraction
+from app.services.embedding_store import embed_repo_chunks
 from app.services.repo_metadata import (
     get_repo_for_worker,
     apply_github_metadata,
     mark_clone_complete,
     mark_indexed,
+    mark_parsed,
     mark_failed,
 )
 
@@ -156,7 +158,7 @@ async def parse_repo_task(ctx, *, repo_id: str) -> dict:
             files = load_files_from_clone(repo.clonePath)
             summary = await persist_extraction(db, repo_id, files)
 
-            await mark_indexed(
+            await mark_parsed(
                 db,
                 repo,
                 chunk_count=summary["chunks_created"],
@@ -168,6 +170,74 @@ async def parse_repo_task(ctx, *, repo_id: str) -> dict:
                 "files_extracted": summary["files_extracted"],
                 "chunks_created": summary["chunks_created"],
                 "connections_created": summary["connections_created"],
+            }
+
+            await db.execute(
+                update(WorkerTask)
+                .where(WorkerTask.id == task_row.id)
+                .values(statusId=TaskStatus.SUCCESS.value, completedAt=completed_at, result=result)
+            )
+            await db.commit()
+
+            embed_job = await ctx["redis"].enqueue_job("embed_repo_task", repo_id=repo_id)
+
+            return {
+                "repo_id": repo_id,
+                "embed_job_id": embed_job.job_id if embed_job else None,
+                **result,
+            }
+
+        except Exception as exc:
+            completed_at = datetime.now(timezone.utc)
+            await mark_failed(db, repo_id)
+            await db.execute(
+                update(WorkerTask)
+                .where(WorkerTask.id == task_row.id)
+                .values(
+                    statusId=TaskStatus.FAILED.value,
+                    completedAt=completed_at,
+                    errorType=type(exc).__name__,
+                    errorMessage=str(exc),
+                )
+            )
+            await db.commit()
+            raise
+
+
+async def embed_repo_task(ctx, *, repo_id: str) -> dict:
+    """Embed semantic chunks and mark the repository indexed when vectors are stored."""
+    started_at = datetime.now(timezone.utc)
+
+    async with async_session() as db:
+        repo = await get_repo_for_worker(db, repo_id)
+
+        task_row, created = await _insert_task_or_get_existing(
+            db,
+            repo_id=repo_id,
+            task_type=TaskType.EMBED,
+            started_at=started_at,
+        )
+        if not created:
+            return {"repo_id": repo_id, "task_id": task_row.id, "status": "already_exists"}
+
+        try:
+            summary = await embed_repo_chunks(db, repo_id)
+
+            await mark_indexed(
+                db,
+                repo,
+                chunk_count=repo.chunkCount or summary["total_chunks"],
+                connection_count=repo.connectionCount or 0,
+            )
+
+            completed_at = datetime.now(timezone.utc)
+            result = {
+                "total_chunks": summary["total_chunks"],
+                "embedded": summary["embedded"],
+                "skipped": summary["skipped"],
+                "failed": summary["failed"],
+                "embedding_model": summary["embedding_model"],
+                "embedding_dimensions": summary["embedding_dimensions"],
             }
 
             await db.execute(
