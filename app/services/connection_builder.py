@@ -72,8 +72,8 @@ def _resolve_import_path(imp, source_path: str, paths: set[str]) -> str | None:
 
 
 def _resolve_call_target(callee: str, source_path: str, extraction: FileExtraction,
-                         chunk_by_name: dict[str, str], paths: set[str],
-                         full_name_to_path: dict[str, str]) -> tuple[str | None, str | None, str]:
+    chunk_by_name: dict[str, str], paths: set[str], 
+    full_name_to_path: dict[str, str]) -> tuple[str | None, str | None, str]:
     callee = callee.strip()
     if not callee:
         return None, None, "unresolved"
