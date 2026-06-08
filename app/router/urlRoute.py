@@ -43,8 +43,7 @@ async def submit_repo(
         await db.commit()
         await db.refresh(existing)
         repo = existing
-    else:
-        repo = await save_pending_repo_from_url(user["user_id"], github_url, db)
+    
 
     job = await request.app.state.redis.enqueue_job("clone_repo_task", repo_id=repo.id)
 
