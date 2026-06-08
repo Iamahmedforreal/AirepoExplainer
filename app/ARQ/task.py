@@ -26,20 +26,6 @@ from app.services.repo_metadata import (
     mark_failed,
 )
 
-
-async def _get_existing_task(db, *, repo_id: str, task_type: TaskType) -> WorkerTask | None:
-    result = await db.execute(
-        select(WorkerTask)
-        .where(
-            WorkerTask.repoId == repo_id,
-            WorkerTask.taskTypeId == task_type.value,
-        )
-        .order_by(WorkerTask.createdAt.desc())
-        .limit(1)
-    )
-    return result.scalars().first()
-
-
 async def _insert_task_or_get_existing(
     db,
     *,
@@ -63,10 +49,16 @@ async def _insert_task_or_get_existing(
         return task, True
     except IntegrityError:
         await db.rollback()
-        existing_task = await _get_existing_task(db, repo_id=repo_id, task_type=task_type)
-        if existing_task is None:
-            raise
-        return existing_task, False
+        existing = await db.scalar(
+            select(WorkerTask)
+            .where(
+                WorkerTask.repoId == repo_id,
+                WorkerTask.taskTypeId == task_type.value,
+            )
+        )
+        return existing, False
+
+
 
 
 async def clone_repo_task(ctx, *, repo_id: str) -> dict:
@@ -136,7 +128,7 @@ async def clone_repo_task(ctx, *, repo_id: str) -> dict:
 
 
 async def parse_repo_task(ctx, *, repo_id: str) -> dict:
-    """Read clone from Repository.clonePath; extract symbols; store chunks + connections in Postgres."""
+    """Read clone from Repository.clo   Path; extract symbols; store chunks + connections in Postgres."""
     started_at = datetime.now(timezone.utc)
 
     async with async_session() as db:
