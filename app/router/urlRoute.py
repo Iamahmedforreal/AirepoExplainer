@@ -6,7 +6,7 @@ from app.utils.utils import authenticate_and_get_user_id
 from app.models.db import get_db
 from app.models.repo_models import Repository, WorkerTask
 from app.models.repo_models import TaskStatus, RepoStatus
-from app.services.urlService import extract_repo_info, save_repo, check_existing_repo
+from app.services.urlService import check_existing_repo, get_owner_and_repo, save_pending_repo_from_url
 from app.services.repo_metadata import repo_to_dict
 
 router = APIRouter(prefix="/api", tags=["repositories"])
@@ -18,7 +18,7 @@ async def submit_repo(
     payload: TrustedGitHubRepoLink,
     db: AsyncSession = Depends(get_db),
 ):
-    """Create or reuse a repository row, then enqueue clone. Returns repo metadata immediately."""
+    """Create or reuse a repository row, then enqueue clone without calling GitHub."""
     user = authenticate_and_get_user_id(request)
     github_url = str(payload.url)
 
@@ -30,15 +30,10 @@ async def submit_repo(
         }
 
     if existing:
-        metadata, _, _ = await extract_repo_info(github_url)
-        existing.githubUrl = metadata["githubUrl"]
-        existing.repoOwner = metadata["repoOwner"]
-        existing.repoName = metadata["repoName"]
-        existing.defaultBranch = metadata.get("defaultBranch")
-        existing.isPrivate = metadata.get("isPrivate", False)
-        existing.description = metadata.get("description")
-        existing.language = metadata.get("language")
-        existing.topics = metadata.get("topics") or []
+        owner, repo_name = await get_owner_and_repo(github_url)
+        existing.githubUrl = github_url
+        existing.repoOwner = owner
+        existing.repoName = repo_name
         existing.statusId = RepoStatus.PENDING.value
         existing.clonePath = None
         existing.sourceFileCount = None
@@ -49,8 +44,7 @@ async def submit_repo(
         await db.refresh(existing)
         repo = existing
     else:
-        metadata, _, _ = await extract_repo_info(github_url)
-        repo = await save_repo(user["user_id"], metadata, db)
+        repo = await save_pending_repo_from_url(user["user_id"], github_url, db)
 
     job = await request.app.state.redis.enqueue_job("clone_repo_task", repo_id=repo.id)
 
