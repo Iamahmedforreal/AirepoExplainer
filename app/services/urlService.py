@@ -316,6 +316,39 @@ async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repositor
         raise Exception(f"Database error while saving repo: {e}")
 
 
+async def save_pending_repo_from_url(
+    user_id: str,
+    github_url: str,
+    db: AsyncSession,
+) -> Repository:
+    """
+    Persist a repository row using only URL-derived metadata.
+
+    The worker refreshes full GitHub metadata later, so the submit route can
+    return quickly without waiting on the GitHub API.
+    """
+    try:
+        owner, repo_name = await get_owner_and_repo(github_url)
+        new_repo = Repository(
+            id=str(uuid.uuid4()),
+            userId=user_id,
+            githubUrl=github_url,
+            repoOwner=owner,
+            repoName=repo_name,
+            topics=[],
+            isPrivate=False,
+            statusId=RepoStatus.PENDING.value,
+        )
+
+        db.add(new_repo)
+        await db.commit()
+        await db.refresh(new_repo)
+        return new_repo
+
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise Exception(f"Database error while saving repo: {e}")
+
 
 async def check_existing_repo( user_id: str,github_url: str,db: AsyncSession
 ) -> Repository | None:
@@ -333,7 +366,7 @@ async def check_existing_repo( user_id: str,github_url: str,db: AsyncSession
         )
     )
     result = await db.execute(query)
-    return result.scalars()
+    return result.scalars().first()
 
 def collect_clean_repo(repo_path: str) -> dict:
     """

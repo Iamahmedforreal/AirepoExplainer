@@ -15,3 +15,5 @@ alembic/versions/__pycache__/
 
 #docker-compose
 docker-compose.yml
+.agents/
+skills-lock.json
