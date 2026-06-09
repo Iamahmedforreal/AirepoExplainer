@@ -12,12 +12,12 @@ from app.models.repo_models import CodeChunk, CodeConnection
 from app.services.ast_extractor import FileExtraction, extract_repo, path_to_module
 from app.services.connection_builder import build_connections
 
-
+"""function to slice content by line numbers"""
 def _slice_content(content: str, start_line: int, end_line: int) -> str:
     lines = content.splitlines()
     return "\n".join(lines[start_line - 1 : end_line])
 
-
+"""function to compute content hash for a given string to detect changes in code chunks"""
 def _content_hash(content: str) -> str:
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
