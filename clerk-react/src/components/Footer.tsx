@@ -1,13 +1,21 @@
-import { LogoMark, Github } from "./icons";
+import { Github } from "./icons";
 
 const cols = [
   {
     title: "Product",
-    links: ["What is CodeGrok", "How it works", "Code graph", "Why CodeGrok"],
+    links: [
+      { label: "Features", href: "#features" },
+      { label: "Architecture graph", href: "#graph" },
+      { label: "How it works", href: "#how" },
+      { label: "Why CodeGrok", href: "#why" },
+    ],
   },
   {
-    title: "Resources",
-    links: ["Documentation", "Graph examples", "Example questions", "Changelog"],
+    title: "Explore",
+    links: [
+      { label: "Who it's for", href: "#who" },
+      { label: "Analyze a repo", href: "#top" },
+    ],
   },
 ];
 
@@ -16,17 +24,15 @@ export default function Footer() {
     <footer className="border-t border-line bg-paper px-6 py-16 sm:px-10">
       <div className="mx-auto grid w-full max-w-6xl gap-12 md:grid-cols-[1.4fr_2fr]">
         <div>
-          <a href="#top" className="flex items-center gap-2.5">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-ink bg-ink text-paper">
-              <LogoMark className="h-5 w-5" />
-            </span>
-            <span className="font-display text-lg font-bold tracking-tight">
-              CodeGrok
-            </span>
+          <a
+            href="#top"
+            className="font-display text-xl font-bold tracking-tight"
+          >
+            CodeGrok<span className="text-faint">/</span>
           </a>
           <p className="mt-5 max-w-xs text-sm leading-relaxed text-muted">
-            A codebase understanding web app. Paste a repo URL, generate a code
-            graph, and ask how the system works.
+            Understand any codebase in minutes. Paste a GitHub URL, generate an
+            architecture graph, and chat with your code.
           </p>
           <a
             href="#top"
@@ -43,12 +49,12 @@ export default function Footer() {
               <h3 className="mono-label mb-4">{col.title}</h3>
               <ul className="space-y-3">
                 {col.links.map((link) => (
-                  <li key={link}>
+                  <li key={link.label}>
                     <a
-                      href="#top"
+                      href={link.href}
                       className="text-sm text-muted transition-colors hover:text-ink"
                     >
-                      {link}
+                      {link.label}
                     </a>
                   </li>
                 ))}
@@ -63,13 +69,19 @@ export default function Footer() {
           © {new Date().getFullYear()} CodeGrok — built for developers.
         </p>
         <div className="flex items-center gap-6">
-          <a href="#top" className="text-xs text-faint transition-colors hover:text-ink">
+          <a
+            href="#top"
+            className="text-xs text-faint transition-colors hover:text-ink"
+          >
             Privacy
           </a>
-          <a href="#top" className="text-xs text-faint transition-colors hover:text-ink">
+          <a
+            href="#top"
+            className="text-xs text-faint transition-colors hover:text-ink"
+          >
             Terms
           </a>
-          <span className="mono-label">Black & white by design</span>
+          <span className="mono-label">Black &amp; white by design</span>
         </div>
       </div>
     </footer>

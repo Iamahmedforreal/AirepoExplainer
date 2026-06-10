@@ -4,18 +4,18 @@ import { Link, Graph, Search } from "./icons";
 const graphSteps = [
   {
     Icon: Link,
-    title: "Repository URL",
-    desc: "A developer submits a GitHub URL, for example github.com/acme/payments-api.",
+    title: "Service-to-service relationships",
+    desc: "See which services and modules depend on each other across the whole repo.",
   },
   {
     Icon: Graph,
-    title: "Code graph",
-    desc: "CodeGrok parses files into modules, classes, functions, imports, and call relationships.",
+    title: "Function calls & import chains",
+    desc: "Follow call edges and import chains from an entry point down to the database.",
   },
   {
     Icon: Search,
-    title: "Queryable system map",
-    desc: "You ask questions against the graph to understand flows, dependencies, and change impact.",
+    title: "Queryable in plain English",
+    desc: "Ask the graph how a flow works and get an answer grounded in real code paths.",
   },
 ];
 
@@ -23,9 +23,9 @@ export default function CodeGraphExample() {
   return (
     <Section
       id="graph"
-      label="Code graph example"
-      title="From one repo URL to a working map of the system."
-      intro="CodeGrok is a web app for understanding codebases. It builds a graph of how the code is structured and connected, then lets you query that map in plain English."
+      label="Architecture graph"
+      title="Turn one repo URL into a map of the whole system."
+      intro="CodeGrok parses every file and builds an interactive graph of how the code connects — services, function calls, import chains, and file dependencies."
     >
       <div className="grid items-start gap-6 lg:grid-cols-[1.15fr_0.85fr]">
         <GraphExample />

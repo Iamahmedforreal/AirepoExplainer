@@ -33,8 +33,14 @@ export default function Section({
             }`}
           >
             {label && (
-              <div className="mono-label mb-5 flex items-center gap-3">
-                {!centered && <span className="h-px w-8 bg-ink" />}
+              <div
+                className={`mono-label mb-5 flex items-center gap-2 ${
+                  centered ? "justify-center" : ""
+                }`}
+              >
+                <span className="not-italic text-ink" aria-hidden="true">
+                  &#10095;
+                </span>
                 <span>{label}</span>
               </div>
             )}

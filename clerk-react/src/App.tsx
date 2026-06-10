@@ -3,11 +3,11 @@ import { useAuth } from "@clerk/react";
 import { setupInterceptor } from "./libs/api.ts";
 import Nav from "./components/Nav";
 import Hero from "./components/Hero";
-import WhatIs from "./components/WhatIs";
-import HowItWorks from "./components/HowItWorks";
+import Features from "./components/Features";
 import CodeGraphExample from "./components/CodeGraphExample";
+import HowItWorks from "./components/HowItWorks";
+import Audience from "./components/Audience";
 import WhyCodeGrok from "./components/WhyCodeGrok";
-import ExampleQuestions from "./components/ExampleQuestions";
 import CTA from "./components/CTA";
 import Footer from "./components/Footer";
 
@@ -26,11 +26,11 @@ function App() {
       <Nav />
       <main>
         <Hero />
-        <WhatIs />
-        <HowItWorks />
+        <Features />
         <CodeGraphExample />
+        <HowItWorks />
+        <Audience />
         <WhyCodeGrok />
-        <ExampleQuestions />
         <CTA />
       </main>
       <Footer />

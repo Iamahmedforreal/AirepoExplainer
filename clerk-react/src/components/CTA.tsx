@@ -15,29 +15,29 @@ export default function CTA() {
       />
 
       <div className="relative mx-auto flex max-w-3xl flex-col items-center text-center">
+        <span className="mono-label mb-6">Understand any codebase in minutes</span>
+
         <h2 className="text-balance text-4xl sm:text-5xl md:text-6xl">
-          Understand your codebase.
+          Stop reading code.
+          <br />
+          Start understanding it.
         </h2>
 
         <p className="mt-6 max-w-xl text-balance text-lg text-muted">
-          CodeGrok helps you understand your own code. Paste a repository URL,
-          let it map how everything connects, then ask how anything works.
+          Paste a GitHub URL and CodeGrok maps the whole repository — then you
+          chat with it to learn how anything works.
         </p>
 
         <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row">
-          <SignUp variant="primary" size="lg" withArrow />
+          <SignUp variant="primary" size="lg" withArrow>
+            Analyze Repository
+          </SignUp>
           <a
-            href="#top"
+            href="#how"
             className="group inline-flex h-12 items-center justify-center gap-2 rounded-full border border-ink bg-paper px-7 text-[0.95rem] font-medium tracking-tight text-ink transition-all duration-200 hover:-translate-y-0.5 hover:bg-ink hover:text-paper"
           >
-            Try Demo
+            View Demo
             <Arrow className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
-          </a>
-          <a
-            href="#graph"
-            className="inline-flex h-12 items-center justify-center rounded-full border border-line bg-transparent px-7 text-[0.95rem] font-medium tracking-tight text-ink transition-all duration-200 hover:-translate-y-0.5 hover:border-ink"
-          >
-            View Graph Example
           </a>
         </div>
       </div>

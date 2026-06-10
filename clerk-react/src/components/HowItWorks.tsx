@@ -1,37 +1,58 @@
 import Section from "./Section";
-import { Link, Parse, Index, Brain } from "./icons";
+import { Link, Parse, Graph, Index, Brain } from "./icons";
 import type { ComponentType, SVGProps } from "react";
 
 type Step = {
   n: string;
   title: string;
   desc: string;
+  items?: string[];
   Icon: ComponentType<SVGProps<SVGSVGElement>>;
 };
 
 const steps: Step[] = [
   {
     n: "01",
-    title: "Paste a repository URL",
-    desc: "Start with a GitHub URL. CodeGrok clones the repo and filters out files that are not useful for understanding the code.",
+    title: "Connect repository",
+    desc: "Paste a GitHub URL — that's the only setup.",
     Icon: Link,
   },
   {
     n: "02",
-    title: "Parse to symbol graph",
-    desc: "Code is parsed into structured intelligence: an AST-based symbol graph of every entity.",
+    title: "Analyze",
+    desc: "CodeGrok parses every file and extracts:",
+    items: [
+      "Classes",
+      "Functions",
+      "Methods",
+      "Imports",
+      "Call relationships",
+      "Dependencies",
+    ],
     Icon: Parse,
   },
   {
     n: "03",
-    title: "Store the code map",
-    desc: "The graph is saved as code chunks and connections so the system can trace how files, functions, and modules relate.",
-    Icon: Index,
+    title: "Build architecture graph",
+    desc: "Generate an interactive graph showing:",
+    items: [
+      "Service-to-service relationships",
+      "Function calls",
+      "Import chains",
+      "File dependencies",
+    ],
+    Icon: Graph,
   },
   {
     n: "04",
-    title: "Query the codebase",
-    desc: "Ask how a feature works, where a function is used, or what might break before changing code.",
+    title: "Generate knowledge base",
+    desc: "Create summaries and embeddings for the entire repository.",
+    Icon: Index,
+  },
+  {
+    n: "05",
+    title: "Chat with your code",
+    desc: "Ask questions in plain English and get answers grounded in real code.",
     Icon: Brain,
   },
 ];
@@ -41,14 +62,17 @@ export default function HowItWorks() {
     <Section
       id="how"
       label="How it works"
-      title="From raw repository to answers, in four steps."
-      className="bg-mist"
+      title="From raw repository to answers, in five steps."
     >
-      <ol className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {steps.map((s, i) => (
-          <li
+          <div
             key={s.n}
-            className="group relative flex flex-col bg-paper p-7 transition-colors hover:bg-mist"
+            className={`group flex flex-col rounded-2xl border bg-paper p-7 transition-all duration-300 hover:-translate-y-1 ${
+              i === 0
+                ? "card-highlight border-ink bg-mist"
+                : "border-line hover:border-ink-soft hover:bg-mist"
+            }`}
           >
             <div className="mb-6 flex items-center justify-between">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-paper text-ink transition-all duration-300 group-hover:border-ink group-hover:bg-ink group-hover:text-paper">
@@ -58,14 +82,21 @@ export default function HowItWorks() {
             </div>
             <h3 className="text-lg font-bold tracking-tight">{s.title}</h3>
             <p className="mt-2.5 text-sm leading-relaxed text-muted">{s.desc}</p>
-            {i < steps.length - 1 && (
-              <span className="absolute -right-2 top-12 z-10 hidden h-4 w-4 items-center justify-center lg:flex">
-                <span className="text-faint">→</span>
-              </span>
+            {s.items && (
+              <ul className="mt-4 flex flex-wrap gap-2">
+                {s.items.map((item) => (
+                  <li
+                    key={item}
+                    className="rounded-full border border-line bg-mist px-3 py-1 font-mono text-xs text-ink"
+                  >
+                    {item}
+                  </li>
+                ))}
+              </ul>
             )}
-          </li>
+          </div>
         ))}
-      </ol>
+      </div>
     </Section>
   );
 }
