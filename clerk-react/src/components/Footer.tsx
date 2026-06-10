@@ -3,15 +3,11 @@ import { LogoMark, Github } from "./icons";
 const cols = [
   {
     title: "Product",
-    links: ["What is CodeGrok", "How it works", "Agent system", "Why CodeGrok"],
+    links: ["What is CodeGrok", "How it works", "Code graph", "Why CodeGrok"],
   },
   {
     title: "Resources",
-    links: ["Documentation", "skill.md", "Example questions", "Changelog"],
-  },
-  {
-    title: "Company",
-    links: ["About", "Blog", "Careers", "Contact"],
+    links: ["Documentation", "Graph examples", "Example questions", "Changelog"],
   },
 ];
 
@@ -29,8 +25,8 @@ export default function Footer() {
             </span>
           </a>
           <p className="mt-5 max-w-xs text-sm leading-relaxed text-muted">
-            The AI code-understanding agent. Parse your repo into structured
-            intelligence and ask it anything.
+            A codebase understanding web app. Paste a repo URL, generate a code
+            graph, and ask how the system works.
           </p>
           <a
             href="#top"
@@ -41,7 +37,7 @@ export default function Footer() {
           </a>
         </div>
 
-        <div className="grid grid-cols-2 gap-8 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-8">
           {cols.map((col) => (
             <div key={col.title}>
               <h3 className="mono-label mb-4">{col.title}</h3>

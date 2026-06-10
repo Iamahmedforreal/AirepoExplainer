@@ -1,5 +1,5 @@
-import { SignIn, SignUp } from "./AuthButtons";
-import { Graph } from "./icons";
+import { SignUp } from "./AuthButtons";
+import { Arrow, Graph } from "./icons";
 
 export default function Hero() {
   return (
@@ -8,56 +8,63 @@ export default function Hero() {
       className="grain relative overflow-hidden border-b border-line"
     >
       {/* layered grayscale backdrop */}
-      <div className="bg-dotgrid pointer-events-none absolute inset-0 opacity-60" />
+      <div className="bg-dotgrid pointer-events-none absolute inset-0 opacity-60 dark:opacity-20" />
+      {/* night-sky stars (dark mode only) */}
+      <div className="starfield pointer-events-none absolute inset-0" />
       <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-line" />
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(60% 50% at 50% 0%, rgba(255,255,255,0) 0%, rgba(255,255,255,0.85) 70%, #ffffff 100%)",
+            "radial-gradient(60% 50% at 50% 0%, transparent 0%, var(--color-paper) 80%)",
         }}
       />
 
       <div className="relative mx-auto flex w-full max-w-4xl flex-col items-center px-6 pb-24 pt-20 text-center sm:px-10 md:pt-28">
         <div
-          className="reveal mb-8 inline-flex items-center gap-2.5 rounded-full border border-line bg-mist px-4 py-1.5"
+          className="badge-stars reveal relative mb-8 inline-flex items-center gap-2.5 rounded-full border border-line bg-mist px-4 py-1.5"
           style={{ animationDelay: "0ms" }}
         >
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-ink opacity-30" />
             <span className="relative inline-flex h-2 w-2 rounded-full bg-ink" />
           </span>
-          <span className="mono-label !text-ink">AI code understanding agent</span>
+          <span className="mono-label !text-ink">Codebase intelligence engine</span>
         </div>
 
         <h1
-          className="reveal text-balance text-6xl leading-[0.95] sm:text-7xl md:text-[7.5rem]"
+          className="reveal text-balance text-5xl leading-[0.95] sm:text-6xl md:text-[5.5rem]"
           style={{ animationDelay: "80ms" }}
         >
-          CodeGrok
+          Understand any codebase in minutes
         </h1>
 
         <p
           className="reveal mt-7 max-w-2xl text-balance text-lg leading-relaxed text-muted sm:text-xl"
           style={{ animationDelay: "160ms" }}
         >
-          Understand any codebase. Ask questions. Get instant AI-powered
-          explanations of how your system works.
+          CodeGrok analyzes repositories, generates architecture graphs, maps
+          dependencies, and lets you chat with your codebase using AI.
         </p>
 
         <div
           className="reveal mt-10 flex flex-col items-center gap-3 sm:flex-row"
           style={{ animationDelay: "240ms" }}
         >
-          <SignUp variant="primary" size="lg" withArrow />
-          <SignIn variant="secondary" size="lg" />
+          <SignUp variant="primary" size="lg" withArrow>
+            Analyze Repository
+          </SignUp>
+          <a
+            href="#examples"
+            className="group inline-flex h-12 items-center justify-center gap-2 rounded-full border border-ink bg-paper px-7 text-[0.95rem] font-medium tracking-tight text-ink transition-all duration-200 hover:-translate-y-0.5 hover:bg-ink hover:text-paper"
+          >
+            View Demo
+            <Arrow className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+          </a>
         </div>
 
-        <p
-          className="reveal mono-label mt-6"
-          style={{ animationDelay: "300ms" }}
-        >
-          No card required · Frontend demo
+        <p className="reveal mono-label mt-6" style={{ animationDelay: "300ms" }}>
+          No card required · Paste a GitHub URL to start
         </p>
 
         {/* code-aware preview card */}
@@ -81,16 +88,16 @@ function QueryPreview() {
           <span className="h-3 w-3 rounded-full border border-line-strong" />
           <span className="h-3 w-3 rounded-full border border-line-strong" />
         </div>
-        <span className="font-mono text-xs text-faint">codegrok ~ auth-service</span>
+        <span className="font-mono text-xs text-faint">
+          codegrok ~ acme/payments-api
+        </span>
         <Graph className="h-4 w-4 text-faint" />
       </div>
 
       <div className="space-y-4 p-5 font-mono text-[0.8rem] leading-relaxed sm:p-6 sm:text-sm">
         <div className="flex items-start gap-3">
           <span className="select-none text-faint">$</span>
-          <p className="text-ink">
-            How does authentication work in this project?
-          </p>
+          <p className="text-ink">How does authentication work in this repo?</p>
         </div>
 
         <div className="rounded-xl border border-line bg-mist/60 p-4">

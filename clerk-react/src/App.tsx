@@ -5,7 +5,7 @@ import Nav from "./components/Nav";
 import Hero from "./components/Hero";
 import WhatIs from "./components/WhatIs";
 import HowItWorks from "./components/HowItWorks";
-import AgentSystem from "./components/AgentSystem";
+import CodeGraphExample from "./components/CodeGraphExample";
 import WhyCodeGrok from "./components/WhyCodeGrok";
 import ExampleQuestions from "./components/ExampleQuestions";
 import CTA from "./components/CTA";
@@ -28,7 +28,7 @@ function App() {
         <Hero />
         <WhatIs />
         <HowItWorks />
-        <AgentSystem />
+        <CodeGraphExample />
         <WhyCodeGrok />
         <ExampleQuestions />
         <CTA />

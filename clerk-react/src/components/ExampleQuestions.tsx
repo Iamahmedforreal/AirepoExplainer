@@ -37,7 +37,7 @@ export default function ExampleQuestions() {
       id="examples"
       label="Example questions"
       title="Ask in plain English. Get engineering answers."
-      className="bg-ink text-paper [&_h2]:text-paper [&_.mono-label]:!text-paper/50"
+      className="accent-panel bg-ink text-paper [&_h2]:text-paper [&_.mono-label]:!text-paper/50"
     >
       <div className="grid gap-px overflow-hidden rounded-2xl border border-paper/15 bg-paper/15 sm:grid-cols-2">
         {questions.map((item) => (

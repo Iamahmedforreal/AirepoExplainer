@@ -12,8 +12,8 @@ type Step = {
 const steps: Step[] = [
   {
     n: "01",
-    title: "Connect repository",
-    desc: "Connect or upload your repository. Public, private, or local — CodeGrok ingests it.",
+    title: "Paste a repository URL",
+    desc: "Start with a GitHub URL. CodeGrok clones the repo and filters out files that are not useful for understanding the code.",
     Icon: Link,
   },
   {
@@ -24,14 +24,14 @@ const steps: Step[] = [
   },
   {
     n: "03",
-    title: "Index everything",
-    desc: "Data is indexed for retrieval with full-text search and semantic embeddings.",
+    title: "Store the code map",
+    desc: "The graph is saved as code chunks and connections so the system can trace how files, functions, and modules relate.",
     Icon: Index,
   },
   {
     n: "04",
-    title: "Ask the agent",
-    desc: "The AI agent answers your questions using real code context from the graph.",
+    title: "Query the codebase",
+    desc: "Ask how a feature works, where a function is used, or what might break before changing code.",
     Icon: Brain,
   },
 ];

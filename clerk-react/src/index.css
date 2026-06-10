@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* class-based dark mode (toggled by adding `.dark` on <html>) */
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* ============================================================
    CodeGrok — strict black & white design system
    ============================================================ */
@@ -19,6 +22,25 @@
   --color-line-strong: #d4d4d4;
 
   --radius-xl2: 1.25rem;
+}
+
+/* ============================================================
+   Dark mode — "night sky": deep black canvas, white starlight.
+   Only the semantic tokens flip, so every component adapts.
+   ============================================================ */
+.dark {
+  --color-ink: #f4f4f5;
+  --color-ink-soft: #d8d8dc;
+  --color-paper: #07070b;
+  --color-mist: #101018;
+  --color-muted: #9b9ba6;
+  --color-faint: #6a6a78;
+  --color-line: #23232e;
+  --color-line-strong: #34344a;
+}
+
+.dark {
+  color-scheme: dark;
 }
 
 @layer base {
@@ -42,6 +64,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    transition: background-color 0.45s ease, color 0.45s ease;
   }
 
   ::selection {
@@ -104,6 +127,91 @@
 
   .text-balance { text-wrap: balance; }
 
+  /* ----------------------------------------------------------
+     Accent panels — surfaces designed as a black card with white
+     text (built from bg-ink / text-paper). Pin the light palette
+     locally so they stay dark-on-light in BOTH themes instead of
+     inverting to a white block in dark mode.
+     ---------------------------------------------------------- */
+  .accent-panel {
+    --color-ink: #0a0a0a;
+    --color-ink-soft: #1a1a1a;
+    --color-paper: #ffffff;
+    --color-line: #e6e6e6;
+    --color-line-strong: #d4d4d4;
+  }
+
+  /* ----------------------------------------------------------
+     Starfield — only visible in dark mode. Two layered fields
+     (::before / ::after) twinkle on different cadences so the
+     sky feels alive. Attach `.starfield` to an absolutely
+     positioned, empty layer inside a `relative` parent.
+     ---------------------------------------------------------- */
+  .starfield::before,
+  .starfield::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-repeat: repeat;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+  }
+
+  .starfield::before {
+    background-image:
+      radial-gradient(1.4px 1.4px at 15% 22%, rgba(255, 255, 255, 0.95), transparent 60%),
+      radial-gradient(1.6px 1.6px at 42% 58%, rgba(255, 255, 255, 0.9), transparent 60%),
+      radial-gradient(1.2px 1.2px at 68% 18%, rgba(255, 255, 255, 0.8), transparent 60%),
+      radial-gradient(1.5px 1.5px at 88% 44%, rgba(255, 255, 255, 0.85), transparent 60%),
+      radial-gradient(1.3px 1.3px at 25% 82%, rgba(255, 255, 255, 0.8), transparent 60%),
+      radial-gradient(1.6px 1.6px at 78% 76%, rgba(255, 255, 255, 0.9), transparent 60%);
+    background-size: 320px 320px;
+  }
+
+  .starfield::after {
+    background-image:
+      radial-gradient(1px 1px at 33% 35%, rgba(255, 255, 255, 0.7), transparent 60%),
+      radial-gradient(1px 1px at 58% 12%, rgba(255, 255, 255, 0.6), transparent 60%),
+      radial-gradient(1px 1px at 8% 60%, rgba(255, 255, 255, 0.65), transparent 60%),
+      radial-gradient(1px 1px at 72% 52%, rgba(255, 255, 255, 0.6), transparent 60%),
+      radial-gradient(1px 1px at 50% 88%, rgba(255, 255, 255, 0.65), transparent 60%),
+      radial-gradient(1px 1px at 94% 28%, rgba(255, 255, 255, 0.6), transparent 60%);
+    background-size: 200px 200px;
+  }
+
+  .dark .starfield::before {
+    opacity: 1;
+    animation: twinkle 5.5s ease-in-out infinite;
+  }
+
+  .dark .starfield::after {
+    opacity: 1;
+    animation: twinkle 8s ease-in-out infinite 1.5s;
+  }
+
+  /* tiny twinkling stars decorating the hero center badge (dark only) */
+  .badge-stars::before,
+  .badge-stars::after {
+    content: "";
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    border-radius: 9999px;
+    background: #ffffff;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+  }
+  .badge-stars::before { top: -3px; left: -4px; box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.6); }
+  .badge-stars::after  { bottom: -2px; right: -5px; box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.6); }
+  .dark .badge-stars::before { opacity: 1; animation: twinkle 3.5s ease-in-out infinite; }
+  .dark .badge-stars::after  { opacity: 1; animation: twinkle 4.5s ease-in-out infinite 0.8s; }
+
+  @keyframes twinkle {
+    0%, 100% { opacity: 0.35; }
+    50% { opacity: 1; }
+  }
+
   /* entrance animation, staggered via inline delay */
   .reveal {
     opacity: 0;
@@ -141,6 +249,10 @@
     .reveal { animation: none; opacity: 1; transform: none; }
     .animate-marquee { animation: none; }
     .caret { animation: none; }
+    .dark .starfield::before,
+    .dark .starfield::after,
+    .dark .badge-stars::before,
+    .dark .badge-stars::after { animation: none; opacity: 1; }
     html { scroll-behavior: auto; }
   }
 }

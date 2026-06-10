@@ -104,6 +104,20 @@ export const Quote = (props: IconProps) => (
   </svg>
 );
 
+export const Moon = (props: IconProps) => (
+  <svg {...base} {...props}>
+    <path d="M20 14.5A8 8 0 0 1 9.5 4a7 7 0 1 0 10.5 10.5Z" />
+    <path d="M17 3.5v3M15.5 5h3" strokeWidth={1.2} />
+  </svg>
+);
+
+export const Sun = (props: IconProps) => (
+  <svg {...base} {...props}>
+    <circle cx="12" cy="12" r="4" />
+    <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+  </svg>
+);
+
 export const Github = (props: IconProps) => (
   <svg {...base} {...props}>
     <path d="M9 19c-4 1.3-4-2-6-2.5M15 21v-3.4a3 3 0 0 0-.8-2.3c2.7-.3 5.5-1.3 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.3 4.3 0 0 0-.1-3.2s-1-.3-3.4 1.3a11.6 11.6 0 0 0-6 0C6.5 1 5.5 1.3 5.5 1.3a4.3 4.3 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 7.7c0 4.6 2.8 5.7 5.5 6a3 3 0 0 0-.8 2.3V21" />

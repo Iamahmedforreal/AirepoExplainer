@@ -1,5 +1,4 @@
 import Section from "./Section";
-import { Graph } from "./icons";
 
 const extracted = [
   { k: "functions", d: "Every function & method, with signatures and scope." },
@@ -19,8 +18,8 @@ export default function WhatIs() {
     <Section
       id="what"
       label="What is CodeGrok"
-      title="An AI code-understanding agent for your repository."
-      intro="CodeGrok analyzes your repository with AST parsing and turns raw source into structured intelligence you can actually reason about."
+      title="Understand your own codebase."
+      intro="CodeGrok is a tool that helps you understand your code. Give it a repository URL and it reads the source, then turns it into a clear map of how everything connects."
     >
       <div className="grid gap-6 lg:grid-cols-2">
         {/* extracted structured data */}
@@ -42,8 +41,7 @@ export default function WhatIs() {
         </div>
 
         {/* ask questions */}
-        <div className="relative overflow-hidden rounded-2xl border border-ink bg-ink p-7 text-paper">
-          <Graph className="absolute -right-6 -top-6 h-32 w-32 text-paper/10" />
+        <div className="accent-panel relative overflow-hidden rounded-2xl border border-ink bg-ink p-7 text-paper">
           <div className="mono-label !text-paper/60 mb-6">Then answer questions like</div>
           <ul className="space-y-3">
             {questions.map((q) => (

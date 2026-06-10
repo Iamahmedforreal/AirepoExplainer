@@ -26,8 +26,8 @@ const reasons: Reason[] = [
   },
   {
     Icon: Layers,
-    title: "Built for developers and teams",
-    desc: "Shared understanding of the system, from a single engineer to whole org.",
+    title: "Built for solo developers",
+    desc: "Understand any project you work on by yourself — from a small script to a large app.",
   },
 ];
 
@@ -37,7 +37,7 @@ export default function WhyCodeGrok() {
       id="why"
       label="Why CodeGrok"
       title="Stop searching. Start understanding."
-      intro="CodeGrok turns your codebase into a structured knowledge graph and lets you chat with it like an AI engineer."
+      intro="CodeGrok turns your codebase into a structured knowledge graph so you can understand architecture, flows, and dependencies faster."
     >
       <div className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-2">
         {reasons.map((r, i) => (
