@@ -464,16 +464,3 @@ def read_file_contents(accepted_files: list[dict]) -> list[dict]:
     return result
 
 
-async def reset_repo(repo, github_url):
-    owner, repo_name = await get_owner_and_repo(github_url)
-
-    repo.githubUrl = github_url
-    repo.repoOwner = owner
-    repo.repoName = repo_name
-    repo.statusId = RepoStatus.PENDING.value
-
-    repo.clonePath = None
-    repo.sourceFileCount = None
-    repo.chunkCount = None
-    repo.connectionCount = None
-    repo.indexedAt = None

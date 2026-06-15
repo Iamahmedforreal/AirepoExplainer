@@ -23,29 +23,14 @@ async def submit_repo(
     github_url = str(payload.url)
 
     existing = await check_existing_repo(user["user_id"], github_url, db)
-    if existing and existing.statusId == RepoStatus.INDEXED.value:
-        return {
-            "status": "already_indexed",
-            "repo": repo_to_dict(existing),
-        }
-
     if existing:
-        owner, repo_name = await get_owner_and_repo(github_url)
-        existing.githubUrl = github_url
-        existing.repoOwner = owner
-        existing.repoName = repo_name
-        existing.statusId = RepoStatus.PENDING.value
-        existing.clonePath = None
-        existing.sourceFileCount = None
-        existing.chunkCount = None
-        existing.connectionCount = None
-        existing.indexedAt = None
-        await db.commit()
-        await db.refresh(existing)
-        repo = existing
-    else:
-        repo = await save_pending_repo_from_url(user["user_id"], github_url, db)
-
+        return {
+            "status": "already exists",
+            "repo": repo_to_dict(existing)
+        }
+   
+    repo = await save_pending_repo_from_url(user["user_id"], github_url, db)
+    
     job = await request.app.state.redis.enqueue_job("clone_repo_task", repo_id=repo.id)
 
     return {
