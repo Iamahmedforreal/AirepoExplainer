@@ -180,6 +180,14 @@ def _extract_js_import(node, content: str) -> tuple[str, list[str]]:
 
 
 def _extract_name(node, content: str) -> str | None:
+    if node.type == "lexical_declaration":
+        for child in node.children:
+            if child.type == "variable_declarator":
+                ident = _child_by_type(child, "identifier")
+                if ident:
+                    return _node_text(content, ident)
+        return None
+
     name_node = (
         _child_by_type(node, "name")
         or _child_by_type(node, "identifier")
@@ -188,13 +196,6 @@ def _extract_name(node, content: str) -> str | None:
     )
     if name_node:
         return _node_text(content, name_node)
-  # arrow functions assigned to const
-    if node.type == "lexical_declaration":
-        for child in node.children:
-            if child.type == "variable_declarator":
-                ident = _child_by_type(child, "identifier")
-                if ident:
-                    return _node_text(content, ident)
     return None
 
 
