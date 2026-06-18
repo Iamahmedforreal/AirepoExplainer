@@ -25,14 +25,10 @@ def clone_repo(owner: str, repo_name: str, github_url: str) -> dict:
     os.makedirs(dest, exist_ok=True)
     Repo.clone_from(github_url, dest, depth=1)
 
-    clean = collect_clean_repo(dest)
-    file_contents = read_file_contents(clean["files"])
 
     return {
         "clone_path": dest,
-        "folders": clean["folders"],
-        "files": file_contents,
-    }
+    } 
 
 
 def load_files_from_clone(clone_path: str) -> list[dict]:
