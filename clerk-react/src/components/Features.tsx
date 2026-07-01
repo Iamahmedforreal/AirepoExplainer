@@ -55,10 +55,10 @@ export default function Features() {
           return (
             <div
               key={f.title}
-              className={`group flex flex-col items-center rounded-2xl border bg-paper p-8 text-center transition-all duration-300 hover:-translate-y-1 ${
+              className={`group flex flex-col items-center rounded-2xl p-8 text-center transition-all duration-300 hover:-translate-y-1 ${
                 highlight
-                  ? "card-highlight border-ink bg-mist"
-                  : "border-line hover:border-ink-soft hover:bg-mist"
+                  ? "card-highlight"
+                  : "glass hover:border-white/25 hover:bg-white/[0.05]"
               }`}
             >
               <span className="text-ink transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:scale-110">

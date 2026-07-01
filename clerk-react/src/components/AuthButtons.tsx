@@ -13,14 +13,14 @@ const buttonClass = (variant: Variant, size: Size = "md") => {
     lg: "h-12 px-7 text-[0.95rem]",
   };
   const variants: Record<Variant, string> = {
-    // black background, white text
+    // starlight button: near-white on the void, glowing on hover
     primary:
-      "bg-ink text-paper border border-ink hover:bg-ink-soft hover:-translate-y-0.5 active:translate-y-0 shadow-[0_1px_0_rgba(0,0,0,0.05)] hover:shadow-[0_10px_30px_-12px_rgba(0,0,0,0.5)]",
-    // white background, black border
+      "bg-white text-[#050609] border border-white hover:-translate-y-0.5 active:translate-y-0 shadow-[0_0_0_1px_rgba(255,255,255,0.15)] hover:shadow-[0_12px_40px_-10px_rgba(255,255,255,0.45)]",
+    // glass panel button
     secondary:
-      "bg-paper text-ink border border-ink hover:bg-ink hover:text-paper hover:-translate-y-0.5 active:translate-y-0",
+      "glass text-ink hover:border-white/40 hover:bg-white/[0.06] hover:-translate-y-0.5 active:translate-y-0",
     ghost:
-      "bg-transparent text-ink border border-line hover:border-ink hover:-translate-y-0.5 active:translate-y-0",
+      "bg-transparent text-ink border border-white/12 hover:border-white/35 hover:bg-white/[0.04] hover:-translate-y-0.5 active:translate-y-0",
   };
   return `${base} ${sizes[size]} ${variants[variant]}`;
 };

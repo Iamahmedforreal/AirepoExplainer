@@ -22,7 +22,15 @@ function App() {
   }, [isLoaded, isSignedIn, getToken]);
 
   return (
-    <div className="min-h-screen bg-paper text-ink">
+    <div className="relative min-h-screen text-ink">
+      {/* deep-space canvas + drifting starfield, fixed behind everything */}
+      <div className="space-canvas" aria-hidden="true" />
+      <div className="space-vignette" aria-hidden="true" />
+      <div
+        className="starfield starfield-bright starfield-drift pointer-events-none fixed inset-[-10%] -z-[1]"
+        aria-hidden="true"
+      />
+
       <Nav />
       <main>
         <Hero />

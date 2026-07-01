@@ -34,9 +34,9 @@ export default function CodeGraphExample() {
           {graphSteps.map((p) => (
             <div
               key={p.title}
-              className="group flex gap-4 rounded-2xl border border-line bg-paper p-5 transition-colors hover:border-ink-soft"
+              className="glass group flex gap-4 rounded-2xl p-5 transition-colors hover:border-white/25 hover:bg-white/[0.05]"
             >
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line text-ink transition-colors group-hover:border-ink group-hover:bg-ink group-hover:text-paper">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/12 text-ink transition-colors group-hover:border-white group-hover:bg-white group-hover:text-[#050609]">
                 <p.Icon className="h-5 w-5" />
               </span>
               <div>
@@ -55,44 +55,44 @@ export default function CodeGraphExample() {
 
 function GraphExample() {
   return (
-    <div className="accent-panel overflow-hidden rounded-2xl border border-ink bg-ink text-paper shadow-[0_40px_80px_-50px_rgba(0,0,0,0.7)]">
-      <div className="flex items-center justify-between border-b border-paper/15 px-4 py-3">
+    <div className="glass-strong overflow-hidden rounded-2xl shadow-[0_40px_90px_-50px_rgba(0,0,0,0.9)]">
+      <div className="flex items-center justify-between border-b border-white/10 px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-paper/30" />
-          <span className="h-2.5 w-2.5 rounded-full bg-paper/20" />
-          <span className="h-2.5 w-2.5 rounded-full bg-paper/10" />
+          <span className="h-2.5 w-2.5 rounded-full bg-white/30" />
+          <span className="h-2.5 w-2.5 rounded-full bg-white/20" />
+          <span className="h-2.5 w-2.5 rounded-full bg-white/10" />
         </div>
-        <span className="font-mono text-xs text-paper/50">
+        <span className="font-mono text-xs text-faint">
           github.com/acme/payments-api
         </span>
       </div>
 
       <div className="space-y-5 p-5 font-mono text-[0.82rem] leading-7 sm:p-6">
         <div>
-          <p className="text-paper/40">input</p>
-          <p className="text-paper">https://github.com/acme/payments-api</p>
+          <p className="text-faint">input</p>
+          <p className="text-ink">https://github.com/acme/payments-api</p>
         </div>
 
-        <div className="rounded-xl border border-paper/15 bg-paper/5 p-4">
-          <p className="mb-3 text-paper/40">generated graph</p>
-          <div className="space-y-2 text-paper/85">
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <p className="mb-3 text-faint">generated graph</p>
+          <div className="space-y-2 text-ink-soft">
             <p>api.routes.checkout.create_order</p>
-            <p className="pl-6 text-paper/60">
+            <p className="pl-6 text-muted">
               imports services.payments.charge_card
             </p>
-            <p className="pl-6 text-paper/60">
+            <p className="pl-6 text-muted">
               calls repositories.orders.save_order
             </p>
-            <p className="pl-12 text-paper/40">calls db.session.commit</p>
+            <p className="pl-12 text-faint">calls db.session.commit</p>
           </div>
         </div>
 
         <div>
-          <p className="text-paper/40">query</p>
-          <p className="text-paper">
+          <p className="text-faint">query</p>
+          <p className="text-ink">
             What happens when checkout creates an order?
           </p>
-          <p className="mt-2 text-paper/65">
+          <p className="mt-2 text-muted">
             CodeGrok answers from the traced modules, functions, imports, and
             call paths instead of only matching keywords.
           </p>

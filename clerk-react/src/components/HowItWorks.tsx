@@ -68,14 +68,14 @@ export default function HowItWorks() {
         {steps.map((s, i) => (
           <div
             key={s.n}
-            className={`group flex flex-col rounded-2xl border bg-paper p-7 transition-all duration-300 hover:-translate-y-1 ${
+            className={`group flex flex-col rounded-2xl p-7 transition-all duration-300 hover:-translate-y-1 ${
               i === 0
-                ? "card-highlight border-ink bg-mist"
-                : "border-line hover:border-ink-soft hover:bg-mist"
+                ? "card-highlight"
+                : "glass hover:border-white/25 hover:bg-white/[0.05]"
             }`}
           >
             <div className="mb-6 flex items-center justify-between">
-              <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-line bg-paper text-ink transition-all duration-300 group-hover:border-ink group-hover:bg-ink group-hover:text-paper">
+              <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/12 text-ink transition-all duration-300 group-hover:border-white group-hover:bg-white group-hover:text-[#050609]">
                 <s.Icon className="h-5 w-5" />
               </span>
               <span className="font-mono text-xs text-faint">{s.n}</span>
@@ -87,7 +87,7 @@ export default function HowItWorks() {
                 {s.items.map((item) => (
                   <li
                     key={item}
-                    className="rounded-full border border-line bg-mist px-3 py-1 font-mono text-xs text-ink"
+                    className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 font-mono text-xs text-ink-soft"
                   >
                     {item}
                   </li>

@@ -1,45 +1,50 @@
 @import "tailwindcss";
 
-/* class-based dark mode (toggled by adding `.dark` on <html>) */
+/* dark is the only theme — kept as a variant for any legacy `.dark` usage */
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ============================================================
-   CodeGrok — strict black & white design system
+   CodeGrok — "night sky" design system.
+   One canvas: deep black space, white starlight, glass panels.
+   No light mode, no white blocks, no inverted black cards.
    ============================================================ */
 @theme {
   --font-display: "Bricolage Grotesque", "Segoe UI", sans-serif;
   --font-sans: "Geist", system-ui, "Segoe UI", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
 
-  /* grayscale only */
-  --color-ink: #0a0a0a;
-  --color-ink-soft: #1a1a1a;
-  --color-paper: #ffffff;
-  --color-mist: #fafafa;
-  --color-muted: #6b6b6b;
-  --color-faint: #8f8f8f;
-  --color-line: #e6e6e6;
-  --color-line-strong: #d4d4d4;
+  /* single dark palette — starlight on black */
+  --color-ink: #f4f4f5;        /* primary text (starlight) */
+  --color-ink-soft: #d8d8dc;   /* hover / secondary text */
+  --color-paper: #050609;      /* the void */
+  --color-mist: #0c0d14;       /* faint raised surface */
+  --color-muted: #9b9ba9;      /* body secondary */
+  --color-faint: #63647a;      /* labels / captions */
+  --color-line: #1c1d29;       /* hairline borders */
+  --color-line-strong: #2b2c3d;/* stronger borders / dots */
+
+  /* glass surface tokens */
+  --glass-bg: rgba(255, 255, 255, 0.028);
+  --glass-bg-strong: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.09);
+  --glass-border-strong: rgba(255, 255, 255, 0.22);
 
   --radius-xl2: 1.25rem;
 }
 
-/* ============================================================
-   Dark mode — "night sky": deep black canvas, white starlight.
-   Only the semantic tokens flip, so every component adapts.
-   ============================================================ */
+/* keep .dark identical so pre-existing dark: utilities still resolve */
 .dark {
   --color-ink: #f4f4f5;
   --color-ink-soft: #d8d8dc;
-  --color-paper: #07070b;
-  --color-mist: #101018;
-  --color-muted: #9b9ba6;
-  --color-faint: #6a6a78;
-  --color-line: #23232e;
-  --color-line-strong: #34344a;
+  --color-paper: #050609;
+  --color-mist: #0c0d14;
+  --color-muted: #9b9ba9;
+  --color-faint: #63647a;
+  --color-line: #1c1d29;
+  --color-line-strong: #2b2c3d;
 }
 
-.dark {
+html {
   color-scheme: dark;
 }
 
@@ -55,7 +60,7 @@
 
   body {
     margin: 0;
-    background: var(--color-paper);
+    background-color: #050609;
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-weight: 350;
@@ -64,12 +69,11 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    transition: background-color 0.45s ease, color 0.45s ease;
   }
 
   ::selection {
     background: var(--color-ink);
-    color: var(--color-paper);
+    color: #050609;
   }
 
   h1, h2, h3 {
@@ -80,22 +84,47 @@
     line-height: 1.02;
   }
 
-  /* thin custom scrollbar */
   ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: var(--color-paper); }
+  ::-webkit-scrollbar-track { background: #050609; }
   ::-webkit-scrollbar-thumb {
     background: var(--color-line-strong);
-    border: 3px solid var(--color-paper);
+    border: 3px solid #050609;
     border-radius: 99px;
   }
   ::-webkit-scrollbar-thumb:hover { background: var(--color-faint); }
 }
 
 @layer utilities {
+  /* ----------------------------------------------------------
+     Deep-space canvas: a fixed, full-viewport background that
+     sits behind everything. Layered radial glows over pure
+     black give the sky depth without introducing any color.
+     ---------------------------------------------------------- */
+  .space-canvas {
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    background:
+      radial-gradient(120% 80% at 50% -10%, rgba(255, 255, 255, 0.07) 0%, transparent 55%),
+      radial-gradient(90% 60% at 85% 20%, rgba(255, 255, 255, 0.035) 0%, transparent 60%),
+      radial-gradient(90% 70% at 10% 80%, rgba(255, 255, 255, 0.03) 0%, transparent 60%),
+      #050609;
+  }
+
+  /* soft vignette that darkens the edges of the void */
+  .space-vignette {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(130% 100% at 50% 40%, transparent 55%, rgba(0, 0, 0, 0.7) 100%);
+  }
+
   /* faint engineering dot-grid backdrop */
   .bg-dotgrid {
     background-image: radial-gradient(var(--color-line-strong) 1px, transparent 1px);
-    background-size: 22px 22px;
+    background-size: 24px 24px;
     background-position: -1px -1px;
   }
 
@@ -106,14 +135,31 @@
     background-size: 64px 64px;
   }
 
-  /* subtle grain overlay for atmosphere (still grayscale) */
+  /* subtle grain overlay for atmosphere */
   .grain::before {
     content: "";
     position: absolute;
     inset: 0;
     pointer-events: none;
-    opacity: 0.025;
+    opacity: 0.04;
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  /* ----------------------------------------------------------
+     Glass — translucent panels so the starfield shows through.
+     Replaces every solid white / inverted-black surface.
+     ---------------------------------------------------------- */
+  .glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+  .glass-strong {
+    background: var(--glass-bg-strong);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
   }
 
   .mono-label {
@@ -127,20 +173,20 @@
 
   .text-balance { text-wrap: balance; }
 
-  /* monochrome gradient wordmark (ink → muted), clipped to text */
+  /* starlight gradient wordmark (white → dim) */
   .text-gradient {
     background-image: linear-gradient(
-      105deg,
-      var(--color-ink) 0%,
-      var(--color-ink) 42%,
-      var(--color-muted) 100%
+      180deg,
+      #ffffff 0%,
+      #d6d6e2 45%,
+      #7f8098 100%
     );
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
   }
 
-  /* soft radial halo behind the hero emblem — adapts to theme via --color-ink */
+  /* soft radial halo behind the hero emblem */
   .emblem-glow {
     position: relative;
     isolation: isolate;
@@ -152,37 +198,25 @@
     z-index: -1;
     background: radial-gradient(
       circle,
-      color-mix(in srgb, var(--color-ink) 24%, transparent) 0%,
+      rgba(255, 255, 255, 0.14) 0%,
       transparent 68%
     );
   }
 
-  /* subtle accent ring + lift for the highlighted feature card */
+  /* accent ring + lift for a highlighted glass card */
   .card-highlight {
+    background: var(--glass-bg-strong);
     box-shadow:
-      0 0 0 1px var(--color-ink),
-      0 24px 60px -32px color-mix(in srgb, var(--color-ink) 50%, transparent);
+      0 0 0 1px var(--glass-border-strong),
+      0 30px 70px -34px rgba(0, 0, 0, 0.9),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
 
   /* ----------------------------------------------------------
-     Accent panels — surfaces designed as a black card with white
-     text (built from bg-ink / text-paper). Pin the light palette
-     locally so they stay dark-on-light in BOTH themes instead of
-     inverting to a white block in dark mode.
-     ---------------------------------------------------------- */
-  .accent-panel {
-    --color-ink: #0a0a0a;
-    --color-ink-soft: #1a1a1a;
-    --color-paper: #ffffff;
-    --color-line: #e6e6e6;
-    --color-line-strong: #d4d4d4;
-  }
-
-  /* ----------------------------------------------------------
-     Starfield — only visible in dark mode. Two layered fields
-     (::before / ::after) twinkle on different cadences so the
-     sky feels alive. Attach `.starfield` to an absolutely
-     positioned, empty layer inside a `relative` parent.
+     Starfield — always on now. Three layered fields twinkle on
+     different cadences so the sky feels alive. Attach to an
+     absolutely positioned, empty layer inside a `relative`
+     (or fixed) parent.
      ---------------------------------------------------------- */
   .starfield::before,
   .starfield::after {
@@ -191,19 +225,18 @@
     inset: 0;
     pointer-events: none;
     background-repeat: repeat;
-    opacity: 0;
-    transition: opacity 0.6s ease;
   }
 
   .starfield::before {
     background-image:
-      radial-gradient(1.4px 1.4px at 15% 22%, rgba(255, 255, 255, 0.95), transparent 60%),
-      radial-gradient(1.6px 1.6px at 42% 58%, rgba(255, 255, 255, 0.9), transparent 60%),
-      radial-gradient(1.2px 1.2px at 68% 18%, rgba(255, 255, 255, 0.8), transparent 60%),
-      radial-gradient(1.5px 1.5px at 88% 44%, rgba(255, 255, 255, 0.85), transparent 60%),
-      radial-gradient(1.3px 1.3px at 25% 82%, rgba(255, 255, 255, 0.8), transparent 60%),
-      radial-gradient(1.6px 1.6px at 78% 76%, rgba(255, 255, 255, 0.9), transparent 60%);
-    background-size: 320px 320px;
+      radial-gradient(1.6px 1.6px at 15% 22%, rgba(255, 255, 255, 0.95), transparent 60%),
+      radial-gradient(1.8px 1.8px at 42% 58%, rgba(255, 255, 255, 0.9), transparent 60%),
+      radial-gradient(1.3px 1.3px at 68% 18%, rgba(255, 255, 255, 0.8), transparent 60%),
+      radial-gradient(1.7px 1.7px at 88% 44%, rgba(255, 255, 255, 0.85), transparent 60%),
+      radial-gradient(1.4px 1.4px at 25% 82%, rgba(255, 255, 255, 0.8), transparent 60%),
+      radial-gradient(1.8px 1.8px at 78% 76%, rgba(255, 255, 255, 0.9), transparent 60%);
+    background-size: 340px 340px;
+    animation: twinkle 5.5s ease-in-out infinite;
   }
 
   .starfield::after {
@@ -213,21 +246,30 @@
       radial-gradient(1px 1px at 8% 60%, rgba(255, 255, 255, 0.65), transparent 60%),
       radial-gradient(1px 1px at 72% 52%, rgba(255, 255, 255, 0.6), transparent 60%),
       radial-gradient(1px 1px at 50% 88%, rgba(255, 255, 255, 0.65), transparent 60%),
-      radial-gradient(1px 1px at 94% 28%, rgba(255, 255, 255, 0.6), transparent 60%);
-    background-size: 200px 200px;
-  }
-
-  .dark .starfield::before {
-    opacity: 1;
-    animation: twinkle 5.5s ease-in-out infinite;
-  }
-
-  .dark .starfield::after {
-    opacity: 1;
+      radial-gradient(1px 1px at 94% 28%, rgba(255, 255, 255, 0.6), transparent 60%),
+      radial-gradient(0.8px 0.8px at 18% 44%, rgba(255, 255, 255, 0.5), transparent 60%),
+      radial-gradient(0.8px 0.8px at 82% 8%, rgba(255, 255, 255, 0.5), transparent 60%);
+    background-size: 220px 220px;
     animation: twinkle 8s ease-in-out infinite 1.5s;
   }
 
-  /* tiny twinkling stars decorating the hero center badge (dark only) */
+  /* larger, rarer glowing stars for depth */
+  .starfield-bright::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-repeat: repeat;
+    background-image:
+      radial-gradient(2.4px 2.4px at 20% 30%, rgba(255, 255, 255, 1), transparent 55%),
+      radial-gradient(2.2px 2.2px at 70% 65%, rgba(255, 255, 255, 0.95), transparent 55%),
+      radial-gradient(2.6px 2.6px at 90% 15%, rgba(255, 255, 255, 1), transparent 55%);
+    background-size: 620px 620px;
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.6));
+    animation: twinkle 6.5s ease-in-out infinite 0.6s;
+  }
+
+  /* tiny twinkling stars decorating the hero center badge */
   .badge-stars::before,
   .badge-stars::after {
     content: "";
@@ -236,17 +278,23 @@
     height: 2px;
     border-radius: 9999px;
     background: #ffffff;
-    opacity: 0;
-    transition: opacity 0.5s ease;
+    box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.6);
   }
-  .badge-stars::before { top: -3px; left: -4px; box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.6); }
-  .badge-stars::after  { bottom: -2px; right: -5px; box-shadow: 0 0 4px 1px rgba(255, 255, 255, 0.6); }
-  .dark .badge-stars::before { opacity: 1; animation: twinkle 3.5s ease-in-out infinite; }
-  .dark .badge-stars::after  { opacity: 1; animation: twinkle 4.5s ease-in-out infinite 0.8s; }
+  .badge-stars::before { top: -3px; left: -4px; animation: twinkle 3.5s ease-in-out infinite; }
+  .badge-stars::after  { bottom: -2px; right: -5px; animation: twinkle 4.5s ease-in-out infinite 0.8s; }
 
   @keyframes twinkle {
     0%, 100% { opacity: 0.35; }
     50% { opacity: 1; }
+  }
+
+  /* slow parallax drift for the fixed starfield */
+  @keyframes drift {
+    from { transform: translate3d(0, 0, 0); }
+    to { transform: translate3d(-40px, -30px, 0); }
+  }
+  .starfield-drift {
+    animation: drift 90s linear infinite alternate;
   }
 
   /* entrance animation, staggered via inline delay */
@@ -286,10 +334,12 @@
     .reveal { animation: none; opacity: 1; transform: none; }
     .animate-marquee { animation: none; }
     .caret { animation: none; }
-    .dark .starfield::before,
-    .dark .starfield::after,
-    .dark .badge-stars::before,
-    .dark .badge-stars::after { animation: none; opacity: 1; }
+    .starfield-drift { animation: none; }
+    .starfield::before,
+    .starfield::after,
+    .starfield-bright::before,
+    .badge-stars::before,
+    .badge-stars::after { animation: none; }
     html { scroll-behavior: auto; }
   }
 }

@@ -48,14 +48,14 @@ export default function Audience() {
       label="Who is it for"
       title="Built for anyone who needs to read code, not just write it."
     >
-      <div className="grid gap-px overflow-hidden rounded-2xl border border-line bg-line sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {personas.map((p) => (
           <div
             key={p.who}
-            className="group flex flex-col bg-paper p-7 transition-colors hover:bg-mist"
+            className="glass group flex flex-col rounded-2xl p-7 transition-all duration-300 hover:-translate-y-1 hover:border-white/25 hover:bg-white/[0.05]"
           >
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line text-ink transition-colors group-hover:border-ink group-hover:bg-ink group-hover:text-paper">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/12 text-ink transition-colors group-hover:border-white group-hover:bg-white group-hover:text-[#050609]">
                 <p.Icon className="h-5 w-5" />
               </span>
               <h3 className="text-base font-bold tracking-tight">{p.who}</h3>
