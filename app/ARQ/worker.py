@@ -17,4 +17,5 @@ class WorkerSettings:
     on_shutdown = shutdown
     max_jobs = 10       # each worker handles up to 10 repos concurrently
     job_timeout = 120   # 2 min per job (tree fetch only, no content yet)
+    retry_jobs = True
 
