@@ -24,11 +24,8 @@ async def submit_repo(
 
     existing = await check_existing_repo(user["user_id"], github_url, db)
     if existing:
-        return {
-            "status": "already exists",
-            "repo": repo_to_dict(existing)
-        }
-   
+        raise HTTPException(status_code=409, detail="Repository already exists")
+     
     repo = await save_pending_repo_from_url(user["user_id"], github_url, db)
     
     job = await request.app.state.redis.enqueue_job("clone_repo_task", repo_id=repo.id)
@@ -39,28 +36,6 @@ async def submit_repo(
         "jobId": job.job_id if job else None,
         "repo": repo_to_dict(repo),
     }
-
-
-@router.get("/repos/{repo_id}")
-async def get_repo_metadata(
-    repo_id: str,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-):
-    """Return repository metadata and indexing stats for the dashboard."""
-    user = authenticate_and_get_user_id(request)
-
-    result = await db.execute(
-        select(Repository).where(
-            Repository.id == repo_id,
-            Repository.userId == user["user_id"],
-        )
-    )
-    repo = result.scalars().first()
-    if not repo:
-        raise HTTPException(status_code=404, detail="Repository not found")
-
-    return repo_to_dict(repo)
 
 
 @router.get("/tasks/{task_id}")
