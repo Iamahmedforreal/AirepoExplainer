@@ -1,6 +1,7 @@
 """
 ARQ background tasks for repository indexing.
 """
+from http.client import HTTPException
 import uuid
 from datetime import datetime, timezone
 
@@ -75,7 +76,7 @@ async def clone_repo_task(ctx, *, repo_id: str) -> dict:
             started_at=started_at,
         )
         if not created:
-            return {"repo_id": repo_id, "task_id": task_row.id, "status": "already_exists"}
+            raise HTTPException(status_code=409, detail="Clone task already exists for this repository")
 
         try:
             metadata, _, _ = await extract_repo_info(repo.githubUrl)
