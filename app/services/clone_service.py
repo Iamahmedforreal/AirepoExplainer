@@ -31,6 +31,7 @@ def clone_repo(owner: str, repo_name: str, github_url: str) -> dict:
     return {
         "clone_path": dest,
         "files": file_contents,
+        "folders": clean["folders"]
     } 
 
 
