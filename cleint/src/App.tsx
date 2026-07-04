@@ -1,10 +1,10 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Show, useAuth } from "@clerk/react";
 import { setupInterceptor } from "./libs/api.ts";
 import Nav from "./components/Nav.tsx";
 import Hero from "./components/Hero.tsx";
 import Footer from "./components/Footer.tsx";
-import ChatPage from "./chat/ChatPage.tsx";
+import Workspace from "./chat/Workspace.tsx";
 
 function LandingPage() {
   return (
@@ -28,20 +28,36 @@ function LandingPage() {
 
 function App() {
   const { getToken, isSignedIn, isLoaded } = useAuth();
+  // Gate the workspace until the auth interceptor is installed, so its
+  // first API calls (list repos, etc.) always carry a bearer token.
+  const [apiReady, setApiReady] = useState(false);
 
   useEffect(() => {
-    if (!isLoaded) return;
-    if (!isSignedIn) return;
+    if (!isLoaded || !isSignedIn) return;
     const cleanup = setupInterceptor(getToken);
-    return cleanup;
+    // Interceptor is live; allow the workspace to make authenticated calls.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setApiReady(true);
+    return () => {
+      cleanup();
+      setApiReady(false);
+    };
   }, [isLoaded, isSignedIn, getToken]);
 
-  // Signed-in users are dropped straight into the chat workspace;
-  // everyone else sees the marketing landing page.
+  // Signed-in users go through: connect a repo -> watch it index -> chat.
+  // Everyone else sees the marketing landing page.
   return (
-    <Show when="signed-out" fallback={<ChatPage />}>
+    <Show when="signed-out" fallback={apiReady ? <Workspace /> : <BootScreen />}>
       <LandingPage />
     </Show>
+  );
+}
+
+function BootScreen() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-paper">
+      <span className="h-6 w-6 animate-spin rounded-full border-2 border-white/15 border-t-white/70" />
+    </div>
   );
 }
 
