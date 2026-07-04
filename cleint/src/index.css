@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "highlight.js/styles/github-dark.css";
 
 /* dark is the only theme — kept as a variant for any legacy `.dark` usage */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -328,6 +329,19 @@ html {
     transform: translateY(0.12em);
     background: var(--color-ink);
     animation: blink 1.1s steps(1) infinite;
+  }
+
+  /* let our own code-block chrome supply the background */
+  .hljs {
+    background: transparent;
+    padding: 0;
+    color: var(--color-ink-soft);
+  }
+
+  /* "typing" dots for the streaming assistant indicator */
+  @keyframes typing-bounce {
+    0%, 60%, 100% { opacity: 0.3; transform: translateY(0); }
+    30% { opacity: 1; transform: translateY(-3px); }
   }
 
   @media (prefers-reduced-motion: reduce) {
