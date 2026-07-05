@@ -24,21 +24,11 @@ def _all_paths(extractions: list[FileExtraction]) -> set[str]:
 
 
 def _module_to_path(module: str, paths: set[str]) -> str | None:
-    candidate = module.replace(".", "/") + ".py"
-    if candidate in paths:
-        return candidate
-    candidate_ts = module.replace(".", "/") + ".ts"
-    if candidate_ts in paths:
-        return candidate_ts
-    candidate_js = module.replace(".", "/") + ".js"
-    if candidate_js in paths:
-        return candidate_js
-    candidate_jsx = module.replace(".", "/") + ".jsx"
-    if candidate_jsx in paths:
-        return candidate_jsx
-    candidate_tsx = module.replace(".", "/") + ".tsx"
-    if candidate_tsx in paths:
-        return candidate_tsx
+    base = module.replace(".", "/")
+    for ext in (".py", ".ts", ".js", ".jsx", ".tsx"):
+        candidate = base + ext
+        if candidate in paths:
+            return candidate
     return None
 
 

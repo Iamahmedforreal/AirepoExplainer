@@ -162,7 +162,7 @@ def _extract_js_import(node, content: str) -> tuple[str, list[str]]:
         for raw_name in named_match.group("names").split(","):
             name = raw_name.strip()
             if name:
-                names.append(name.replace(" as ", " as "))
+                names.append(name)
 
     default_match = re.match(r"import\s+(?P<name>[A-Za-z_$][\w$]*)\s*(?:,|\s+from)", text)
     if default_match:

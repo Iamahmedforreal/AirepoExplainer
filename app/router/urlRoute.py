@@ -6,7 +6,7 @@ from app.utils.utils import authenticate_and_get_user_id
 from app.models.db import get_db
 from app.models.repo_models import Repository, WorkerTask
 from app.models.repo_models import TaskStatus, RepoStatus
-from app.services.urlService import check_existing_repo, get_owner_and_repo, save_pending_repo_from_url
+from app.services.urlService import check_existing_repo, save_pending_repo_from_url
 from app.services.repo_metadata import repo_to_dict
 
 router = APIRouter(prefix="/api", tags=["repositories"])

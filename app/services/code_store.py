@@ -12,13 +12,14 @@ from app.models.repo_models import CodeChunk, CodeConnection
 from app.services.ast_extractor import FileExtraction, extract_repo, path_to_module
 from app.services.connection_builder import build_connections
 
-"""function to slice content by line numbers"""
 def _slice_content(content: str, start_line: int, end_line: int) -> str:
+    """Slice file content by 1-based inclusive line numbers."""
     lines = content.splitlines()
     return "\n".join(lines[start_line - 1 : end_line])
 
-"""function to compute content hash for a given string to detect changes in code chunks"""
+
 def _content_hash(content: str) -> str:
+    """Hash content so downstream steps can detect chunk changes."""
     return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
 
@@ -94,7 +95,6 @@ def build_extraction_payload(repo_id: str, files: list[dict]) -> dict:
     module_chunk_by_path: dict[str, str] = {}
     metadata_by_chunk_id: dict[str, dict] = {}
     chunk_rows: list[CodeChunk] = []
-    chunk_payloads: list[dict] = []
 
     for ext in extractions:
         content = content_by_path[ext.path]
@@ -117,16 +117,6 @@ def build_extraction_payload(repo_id: str, files: list[dict]) -> dict:
         metadata_by_chunk_id[module_id] = module_chunk.metadataJson
         module_chunk_by_path[ext.path] = module_id
         chunk_by_full_name[module_name] = module_id
-        chunk_payloads.append({
-            "id": module_id,
-            "path": ext.path,
-            "type": "module",
-            "name": module_name,
-            "fullName": module_name,
-            "startLine": 1,
-            "endLine": len(content.splitlines()),
-            "metadata": module_chunk.metadataJson,
-        })
 
         symbol_id_by_full: dict[str, str] = {}
         for sym in ext.symbols:
@@ -158,20 +148,9 @@ def build_extraction_payload(repo_id: str, files: list[dict]) -> dict:
             chunk_rows.append(chunk)
             metadata_by_chunk_id[sym_id] = chunk.metadataJson
             chunk_by_full_name[sym.full_name] = sym_id
-            chunk_payloads.append({
-                "id": sym_id,
-                "path": ext.path,
-                "type": sym.kind,
-                "name": sym.name,
-                "fullName": sym.full_name,
-                "startLine": sym.start_line,
-                "endLine": sym.end_line,
-                "metadata": chunk.metadataJson,
-            })
 
     connection_records = build_connections(extractions, chunk_by_full_name, module_chunk_by_path)
     connection_rows: list[CodeConnection] = []
-    connection_payloads: list[dict] = []
 
     for rec in connection_records:
         conn_id = str(uuid.uuid4())
@@ -194,16 +173,6 @@ def build_extraction_payload(repo_id: str, files: list[dict]) -> dict:
             confidence=rec.confidence,
             metadataJson=rec.metadata or {},
         ))
-        connection_payloads.append({
-            "sourceChunkId": rec.source_chunk_id,
-            "targetSymbol": rec.target_symbol,
-            "targetChunkId": rec.target_chunk_id,
-            "connectionType": rec.connection_type,
-            "sourceLine": rec.source_line,
-            "targetPath": rec.target_path,
-            "confidence": rec.confidence,
-            "metadata": rec.metadata or {},
-        })
 
     return {
         "files_extracted": len(extractions),
@@ -211,8 +180,6 @@ def build_extraction_payload(repo_id: str, files: list[dict]) -> dict:
         "connections_created": len(connection_rows),
         "chunk_rows": chunk_rows,
         "connection_rows": connection_rows,
-        "chunk_payloads": chunk_payloads,
-        "connection_payloads": connection_payloads,
     }
 
 
@@ -223,7 +190,7 @@ async def persist_extraction(
 ) -> dict:
     """
     Extract symbols, save CodeChunk + CodeConnection rows in PostgreSQL.
-    Returns a summary dict with counts and chunk/connection payloads.
+    Returns a summary dict with counts.
     """
     await db.execute(delete(CodeConnection).where(CodeConnection.repoId == repo_id))
     await db.execute(delete(CodeChunk).where(CodeChunk.repoId == repo_id))
@@ -238,6 +205,4 @@ async def persist_extraction(
         "files_extracted": payload["files_extracted"],
         "chunks_created": payload["chunks_created"],
         "connections_created": payload["connections_created"],
-        "chunk_payloads": payload["chunk_payloads"],
-        "connection_payloads": payload["connection_payloads"],
     }

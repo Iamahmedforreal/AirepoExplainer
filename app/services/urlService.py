@@ -261,7 +261,7 @@ async def extract_repo_info(github_url: str) -> tuple[dict, str, str]:
     Fetch and normalise all information needed to create a Repository record.
 
     Returns:
-        metadata   - normalised dict ready for save_repo()
+        metadata   - normalised dict of repository fields
         owner      - GitHub owner login
         repo_name  - repository name
     """
@@ -276,45 +276,6 @@ async def extract_repo_info(github_url: str) -> tuple[dict, str, str]:
 
 
 # Database operations
-
-async def save_repo(user_id: str, metadata: dict, db: AsyncSession) -> Repository:
-    """
-    Persist a new Repository record to the database.
-
-    Expects metadata in the shape returned by _map_metadata_to_db_fields().
-    Status is always set to PENDING on creation — the worker updates it
-    as the indexing pipeline progresses.
-
-    Raises ValueError if a required metadata field is missing.
-    Raises Exception (wrapping SQLAlchemyError) on database failure,
-    rolling back the transaction before re-raising.
-    """
-    try:
-        new_repo = Repository(
-            id=str(uuid.uuid4()),
-            userId=user_id,
-            githubUrl=metadata["githubUrl"],
-            repoOwner=metadata["repoOwner"],
-            repoName=metadata["repoName"],
-            defaultBranch=metadata.get("defaultBranch"),
-            isPrivate=metadata.get("isPrivate", False),
-            description=metadata.get("description"),
-            language=metadata.get("language"),
-            topics=metadata.get("topics", []),
-            statusId=RepoStatus.PENDING.value,
-        )
-
-        db.add(new_repo)
-        await db.commit()
-        await db.refresh(new_repo)
-        return new_repo
-
-    except KeyError as e:
-        raise ValueError(f"Missing required field in metadata: {e}")
-    except SQLAlchemyError as e:
-        await db.rollback()
-        raise Exception(f"Database error while saving repo: {e}")
-
 
 async def save_pending_repo_from_url(
     user_id: str,
