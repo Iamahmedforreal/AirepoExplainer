@@ -53,12 +53,16 @@ async def _create_embeddings(
     client=None,
     model: str | None = None,
 ) -> list[list[float]]:
-    embedding_client = client or _embedding_client()
-    response = await embedding_client.embeddings.create(
-        model=model or settings.embedding_model,
-        input=list(texts),
-    )
-    return [item.embedding for item in response.data]
+    try:
+        client = client or _embedding_client()
+        model = model or settings.embedding_model
+        response = await client.embeddings.create(
+            model=model,
+            input=texts,
+        )
+        return [item.embedding for item in response.data]
+    except Exception as e:
+        raise RuntimeError(f"Failed to create embeddings: {e}") 
 
 
 async def embed_repo_chunks(
