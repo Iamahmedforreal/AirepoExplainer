@@ -12,8 +12,7 @@ Tables:
 import enum
 import uuid
 from sqlalchemy import (
-    ARRAY, JSON, Boolean, Column, DateTime,
-    Enum, Index, Integer, String, Text,
+    ARRAY, JSON, Boolean, Column, DateTime, Index, Integer, String, Text,
     ForeignKey, UniqueConstraint, text
 )
 from sqlalchemy.sql import func

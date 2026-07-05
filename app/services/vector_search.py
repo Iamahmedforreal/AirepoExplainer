@@ -8,12 +8,12 @@ from app.config.app_config import settings
 from app.models.repo_models import CodeChunk, CodeChunkEmbedding
 from app.services.embedding_store import _create_embeddings
 
-
+"""this function takes a query string and returns its embedding vector using the specified model."""
 async def embed_query(query: str, *, client=None, model: str | None = None) -> list[float]:
     vectors = await _create_embeddings([query], client=client, model=model or settings.embedding_model)
     return vectors[0]
 
-
+"""function to perform vector search over code chunks in a repository."""
 async def search_code_chunks(
     db: AsyncSession,
     *,
