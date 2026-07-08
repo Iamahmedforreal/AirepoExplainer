@@ -13,14 +13,6 @@ const base = {
   strokeLinejoin: "round" as const,
 };
 
-export const LogoMark = (props: IconProps) => (
-  <svg {...base} {...props}>
-    <path d="M8 6 3 12l5 6" />
-    <path d="m16 6 5 6-5 6" />
-    <path d="M13.5 4.5 10.5 19.5" strokeWidth={1.2} />
-  </svg>
-);
-
 export const Graph = (props: IconProps) => (
   <svg {...base} {...props}>
     <circle cx="5" cy="6" r="2.2" />

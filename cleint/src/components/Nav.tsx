@@ -1,5 +1,4 @@
 import { AuthCluster } from "./AuthButtons";
-import { LogoMark } from "./icons";
 
 export default function Nav() {
   return (
@@ -9,9 +8,6 @@ export default function Nav() {
           href="#top"
           className="group flex items-center gap-2 font-display text-lg font-bold tracking-tight"
         >
-          <span className="emblem-glow flex h-7 w-7 items-center justify-center rounded-lg border border-white/15 text-ink">
-            <LogoMark className="h-4 w-4" />
-          </span>
           CodeGrok
           <span className="text-faint transition-colors group-hover:text-ink">
             /

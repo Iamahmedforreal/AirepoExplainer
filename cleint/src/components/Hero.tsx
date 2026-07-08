@@ -1,6 +1,6 @@
 import { SignUpButton } from "@clerk/react";
 import { SignIn } from "./AuthButtons";
-import { Arrow, Github, LogoMark } from "./icons";
+import { Arrow, Github } from "./icons";
 
 export default function Hero() {
   return (
@@ -19,13 +19,6 @@ export default function Hero() {
       />
 
       <div className="relative mx-auto flex w-full max-w-3xl flex-col items-center px-6 pb-20 pt-20 text-center sm:px-10 md:pt-28">
-        <span
-          className="badge-stars reveal emblem-glow relative mb-8 inline-flex h-14 w-14 items-center justify-center rounded-2xl border border-white/15 text-ink"
-          style={{ animationDelay: "40ms" }}
-        >
-          <LogoMark className="h-7 w-7" />
-        </span>
-
         <p
           className="reveal mono-label mb-6"
           style={{ animationDelay: "120ms" }}

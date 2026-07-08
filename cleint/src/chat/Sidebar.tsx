@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { UserButton, useUser } from "@clerk/react";
 import type { Conversation } from "./types";
 import { groupConversations } from "./utils";
-import { Check, Close, LogoMark, Pencil, Plus, Trash } from "../components/icons";
+import { Check, Close, Pencil, Plus, Trash } from "../components/icons";
 
 function ConversationItem({
   conversation,
@@ -136,9 +136,6 @@ export default function Sidebar({
       {/* Brand + new chat */}
       <div className="flex flex-col gap-3 p-3">
         <div className="flex items-center gap-2 px-1 pt-1 font-display text-base font-bold tracking-tight">
-          <span className="emblem-glow flex h-7 w-7 items-center justify-center rounded-lg border border-white/15 text-ink">
-            <LogoMark className="h-4 w-4" />
-          </span>
           CodeGrok
         </div>
         <button

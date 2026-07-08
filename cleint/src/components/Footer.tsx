@@ -1,4 +1,4 @@
-import { Github, LogoMark } from "./icons";
+import { Github } from "./icons";
 
 export default function Footer() {
   return (
@@ -8,9 +8,6 @@ export default function Footer() {
           href="#top"
           className="flex items-center gap-2 font-display text-xl font-bold tracking-tight"
         >
-          <span className="flex h-6 w-6 items-center justify-center rounded-md border border-white/15">
-            <LogoMark className="h-3.5 w-3.5" />
-          </span>
           CodeGrok<span className="text-faint">/</span>
         </a>
 

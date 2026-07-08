@@ -1,5 +1,5 @@
 from arq.connections import RedisSettings
-from app.ARQ.task import clone_repo_task,  parse_repo_task 
+from app.ARQ.task import clone_repo_task,  parse_repo_task  , embed_repo_task
 
 
 async def startup(ctx):
@@ -11,7 +11,7 @@ async def shutdown(ctx):
 
 
 class WorkerSettings:
-    functions = [clone_repo_task , parse_repo_task]
+    functions = [clone_repo_task , parse_repo_task , embed_repo_task]
     redis_settings = RedisSettings(host="localhost", port=6379)
     on_startup = startup
     on_shutdown = shutdown

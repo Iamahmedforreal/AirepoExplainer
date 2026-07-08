@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import type { Conversation } from "./types";
 import MessageBubble from "./MessageBubble";
 import ChatInput from "./ChatInput";
-import { LogoMark, PanelLeft, PenSquare } from "../components/icons";
+import { PanelLeft, PenSquare } from "../components/icons";
 
 const SUGGESTIONS = [
   "Explain the architecture of this repo",
@@ -14,9 +14,6 @@ const SUGGESTIONS = [
 function EmptyState({ onSend }: { onSend: (t: string) => void }) {
   return (
     <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-      <span className="emblem-glow badge-stars mb-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-white/15 text-ink">
-        <LogoMark className="h-7 w-7" />
-      </span>
       <h2 className="text-gradient font-display text-3xl font-bold tracking-tight">
         How can I help?
       </h2>

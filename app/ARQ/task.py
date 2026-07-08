@@ -195,3 +195,65 @@ async def parse_repo_task(ctx, *, repo_id: str) -> dict:
             )
             await db.commit()
             raise
+
+
+async def embed_repo_task(ctx, *, repo_id: str) -> dict:
+    """Embed semantic chunks and mark the repository indexed when vectors are stored."""
+    started_at = datetime.now(timezone.utc)
+
+    async with async_session() as db:
+        repo = await get_repo_for_worker(db, repo_id)
+
+        task_row, created = await _insert_task_or_get_existing(
+            db,
+            repo_id=repo_id,
+            task_type=TaskType.EMBED,
+            started_at=started_at,
+        )
+        if not created:
+            raise HTTPException(status_code=409, detail="Embed task already exists for this repository")
+
+        try:
+            summary = await embed_repo_chunks(db, repo_id)
+
+            await mark_indexed(
+                db,
+                repo,
+                chunk_count=repo.chunkCount or summary["total_chunks"],
+                connection_count=repo.connectionCount or 0,
+            )
+
+            completed_at = datetime.now(timezone.utc)
+            result = {
+                "total_chunks": summary["total_chunks"],
+                "embedded": summary["embedded"],
+                "skipped": summary["skipped"],
+                "failed": summary["failed"],
+                "embedding_model": summary["embedding_model"],
+                "embedding_dimensions": summary["embedding_dimensions"],
+            }
+
+            await db.execute(
+                update(WorkerTask)
+                .where(WorkerTask.id == task_row.id)
+                .values(statusId=TaskStatus.SUCCESS.value, completedAt=completed_at, result=result)
+            )
+            await db.commit()
+
+            return {"repo_id": repo_id, **result}
+
+        except Exception as exc:
+            completed_at = datetime.now(timezone.utc)
+            await mark_failed(db, repo_id)
+            await db.execute(
+                update(WorkerTask)
+                .where(WorkerTask.id == task_row.id)
+                .values(
+                    statusId=TaskStatus.FAILED.value,
+                    completedAt=completed_at,
+                    errorType=type(exc).__name__,
+                    errorMessage=str(exc),
+                )
+            )
+            await db.commit()
+            raise

@@ -1,6 +1,5 @@
 import type { Message } from "./types";
 import { Markdown } from "./Markdown";
-import { LogoMark } from "../components/icons";
 
 function TypingDots() {
   return (
@@ -37,9 +36,6 @@ export default function MessageBubble({
 
   return (
     <div className="flex w-full gap-3">
-      <span className="emblem-glow mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/15 text-ink">
-        <LogoMark className="h-4 w-4" />
-      </span>
       <div className="min-w-0 flex-1 pt-0.5">
         {message.content ? (
           <Markdown content={message.content} />

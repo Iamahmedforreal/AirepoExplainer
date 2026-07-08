@@ -8,7 +8,6 @@ import {
   Close,
   Github,
   Index,
-  LogoMark,
   Parse,
 } from "../components/icons";
 
@@ -86,9 +85,6 @@ export default function IndexingProgress({
 
       <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
         <div className="flex items-center gap-2 font-display text-base font-bold tracking-tight">
-          <span className="emblem-glow flex h-7 w-7 items-center justify-center rounded-lg border border-white/15 text-ink">
-            <LogoMark className="h-4 w-4" />
-          </span>
           CodeGrok
           <span className="text-faint">/</span>
           <span className="mono-label ml-1 hidden sm:inline">indexing</span>
