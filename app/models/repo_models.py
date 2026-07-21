@@ -37,13 +37,10 @@ class RepoStatus(int, enum.Enum):
 
 class TaskType(int, enum.Enum):
     """
-    Granularity of a worker job.
-    FULL_PIPELINE runs all stages in a single ARQ task.
-    Individual types are reserved for partial re-runs (e.g. re-embed only).
+    Granularity of a worker job — one row per stage per repo.
+    Values are kept stable (gaps are intentional) so existing rows stay valid.
     """
-    FULL_PIPELINE = 1
     CLONE         = 2
-    CHUNK         = 3
     EMBED         = 4
     PARSING       = 5
 

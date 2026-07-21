@@ -22,7 +22,6 @@ async def lifespan(app: FastAPI):
     await app.state.redis.close()
 
 app = FastAPI(lifespan=lifespan)
-redis = None
 
 # Add CORS middleware
 app.add_middleware(

@@ -120,13 +120,13 @@ Indexed on `repoId`, `sourceChunkId`, `targetChunkId`. See
 
 ```
 RepoStatus    PENDING(1)  INDEXING(2)  INDEXED(3)  FAILED(4)  OUTDATED(5)
-TaskType      FULL_PIPELINE(1)  CLONE(2)  CHUNK(3)  EMBED(4)  PARSING(5)
+TaskType      CLONE(2)  EMBED(4)  PARSING(5)
 TaskStatus    PENDING(1)  RUNNING(2)  RETRYING(3)  SUCCESS(4)  FAILED(5)
 MessageRole   USER(1)  ASSISTANT(2)
 ```
 
-Only `CLONE` and `PARSING` task types are actually used today; the others
-(`FULL_PIPELINE`, `CHUNK`, `EMBED`) are reserved for future partial re-runs.
+`CLONE`, `PARSING`, and `EMBED` are the pipeline stages. Value gaps (1, 3) are
+intentional so any previously seeded lookup rows stay valid.
 
 ## Notes for changing the schema
 
