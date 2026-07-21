@@ -41,9 +41,16 @@ async def submit_repo(
 @router.get("/tasks/{task_id}")
 async def get_task_phase(task_id: str, request: Request, db: AsyncSession = Depends(get_db)):
     """Poll task progress; includes a summary of repository metadata."""
-    _ = authenticate_and_get_user_id(request)
+    user_id = authenticate_and_get_user_id(request)
 
-    res = await db.execute(select(WorkerTask).where(WorkerTask.id == task_id))
+    res = await db.execute(
+    select(WorkerTask)
+    .join(Repository, WorkerTask.repoId == Repository.id)
+    .where(
+        WorkerTask.id == task_id,
+        Repository.userId == user_id,
+    )
+)
     task = res.scalars().first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
