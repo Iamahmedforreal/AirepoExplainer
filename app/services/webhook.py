@@ -1,5 +1,9 @@
 import logging
-from sqlalchemy.exc import SQLAlchemyError 
+from fastapi import HTTPException , Request
+from neo4j import AsyncSession
+from sqlalchemy.exc import SQLAlchemyError
+from svix import Webhook 
+from app.config.app_config import Settings
 from app.models.repo_models import User
 from sqlalchemy import  select 
 from sqlalchemy.dialects.postgresql import insert
@@ -117,4 +121,24 @@ async def mark_webhook_failed(svix_id: str,error: str,db) -> None:
         raise
   
 
-   
+async def verify_webhook_signature(request:Request) -> dict:
+    if not  Settings.clerk_webhook_secret:
+        logger.error("CLERK_WEBHOOK_SECRET is not configured")
+        raise HTTPException(status_code=500, detail="server misconfiguration")
+    payload = await request.body()
+    try:
+        event = Webhook(Settings.clerk_webhook_secret).verify(payload, dict(request.headers))
+    except Exception as error:
+        logger.error("Webhook verification failed: %s", error)
+        raise HTTPException(status_code=401, detail="Webhook verification failed")
+    
+    return event
+
+
+async def fail_safely(svix_id: str, error_msg: str, db: AsyncSession) -> None:
+    """Best-effort attempt to record a failure. Never let this raise on top of a real error."""
+    try:
+        await mark_webhook_failed(svix_id, error_msg, db)
+    except Exception:
+        logger.error("Also failed to record failure for webhook %s", svix_id, exc_info=True)
+
